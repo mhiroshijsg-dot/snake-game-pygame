@@ -14,6 +14,10 @@ LOG_FILE = USERS_FILE.with_name("crash.log")
 class CrashLogger:
     # sys.excepthook として呼ばれる（未捕捉例外で必ず通る）
     def __call__(self, exc_type, exc, tb):
+        # Ctrl-C / IDEの停止ボタン / 正常終了はクラッシュではないので記録しない
+        if issubclass(exc_type, (KeyboardInterrupt, SystemExit)):
+            sys.__excepthook__(exc_type, exc, tb)
+            return
         try:
             with open(LOG_FILE, "a", encoding="utf-8") as f:
                 f.write(f"--- {datetime.now():%Y-%m-%d %H:%M:%S} v{theme.APP_VERSION} ---\n")

@@ -12,7 +12,6 @@ from users import UserManager
 import theme
 import crashlog
 
-# TODO: 画面のpx数に応じて拡大縮小できるようにしようを変更する？
 # TODO: magnet, shield同時発動中、片方が効果切れの点滅というのはUIが少しみにくい
 # TODO: 一定のスコアを超えたらポイントを消費して最初からスコアと長さを持った状態から始められるようにする？
 # TODO: アイテム数を増やす（ショップのカタログに unlock_score 付きで1行足す方式）
@@ -37,7 +36,18 @@ try:
     pygame.display.set_icon(pygame.image.load(theme.resource_path("assets/icon_64.png")))
 except (OSError, pygame.error):
     pass
-surface = pygame.display.set_mode((theme.WIDTH, theme.HEIGHT))
+
+# 画面が論理解像度(600x720)より小さいモニターでは、ウィンドウだけ縮小する。
+# ゲームは常に 600x720 のキャンバスへ描き、表示時に SCALE 倍で縮小転送するので
+# 座標系・速度・当たり判定などのゲーム性は一切変わらない。
+SCALE = theme.display_scale()
+if SCALE < 1.0:
+    window = pygame.display.set_mode((int(theme.WIDTH * SCALE), int(theme.HEIGHT * SCALE)))
+    surface = pygame.Surface((theme.WIDTH, theme.HEIGHT))  # 描画は常にこの論理キャンバスへ
+else:
+    window = pygame.display.set_mode((theme.WIDTH, theme.HEIGHT))
+    surface = window  # 等倍なら縮小転送を挟まない（従来どおり）
+
 pygame.display.set_caption(f"Snake Game v{theme.APP_VERSION}")
 clock = pygame.time.Clock()
 
@@ -104,10 +114,11 @@ while state.is_on:
             elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4):
                 # 数字キーで下部スロットのアイテムを使う（プレイ中のみ反応）
                 state.use_item(event.key - pygame.K_1)
+        # マウスはウィンドウ座標で来るので、縮小表示中は SCALE で論理座標へ割り戻す
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            state.handle_click(*theme.to_world(*event.pos))
+            state.handle_click(*theme.to_world(event.pos[0] / SCALE, event.pos[1] / SCALE))
         elif event.type == pygame.MOUSEMOTION:
-            state.handle_motion(*theme.to_world(*event.pos))
+            state.handle_motion(*theme.to_world(event.pos[0] / SCALE, event.pos[1] / SCALE))
 
     # 実プレイ中だけマウスカーソルを隠す（メニュー・設定・ゲームオーバーは
     # ボタンをクリックするので表示しておく）。状態が変わった時だけ差し替える。
@@ -177,6 +188,9 @@ while state.is_on:
     # 下部アイテム帯のスロットは常時表示。残り時間バーは効果中のみ各スロット上に出る。
     items.draw(surface)
     state.draw(surface)
+    # 縮小表示中は論理キャンバスをウィンドウサイズへ縮小転送してから反映
+    if surface is not window:
+        pygame.transform.smoothscale(surface, window.get_size(), window)
     pygame.display.flip()
 
 pygame.quit()

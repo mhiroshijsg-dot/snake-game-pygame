@@ -80,7 +80,10 @@ class SlideDeck:
         if users is not None:
             for item in SHOP_ITEMS:
                 if users.has_seen_item(item["key"]):
-                    result.append((item["name"], item["desc"], "potion:" + item["key"]))
+                    # desc/name はカタログの書き忘れがあっても落とさない
+                    result.append((item.get("name", item["key"]),
+                                   item.get("desc", []),
+                                   "potion:" + item["key"]))
         return result
 
     # 1ページぶんの中身（タイトル・イラスト・本文）を描く。ボタン類は呼び出し側が描く

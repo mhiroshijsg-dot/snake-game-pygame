@@ -146,7 +146,11 @@ class UserManager:
             self.current = name
             self.save()
 
+    # 現在ユーザーのレコード。未登録（current=None）の間に書き込み系が呼ばれても
+    # None キーの幽霊ユーザーを作らないよう、使い捨ての空レコードを返す
     def _record(self):
+        if self.current is None:
+            return self._blank_record()
         return self.users.setdefault(self.current, self._blank_record())
 
     def high_score(self, difficulty):

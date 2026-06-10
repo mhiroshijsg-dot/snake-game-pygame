@@ -115,6 +115,20 @@ def to_world(sx, sy):
     return (sx - PLAY_W / 2, HUD_HEIGHT + PLAY_H / 2 - sy)
 
 
+# モニターが論理解像度(WIDTH x HEIGHT)より小さい場合のウィンドウ縮小倍率（最大1.0）。
+# pygame.init() 後・set_mode() 前に呼ぶこと。画面情報が取れない環境では等倍。
+def display_scale():
+    try:
+        info = pygame.display.Info()
+        avail_w = info.current_w - 20   # ウィンドウ枠ぶんの余裕
+        avail_h = info.current_h - 80   # タイトルバー・メニューバー/タスクバーぶんの余裕
+        if avail_w <= 0 or avail_h <= 0:
+            return 1.0
+        return min(1.0, avail_w / WIDTH, avail_h / HEIGHT)
+    except pygame.error:
+        return 1.0
+
+
 # フォント実体をキャッシュして返す（pygame.font.init 後に呼ぶこと）
 _font_cache = {}
 

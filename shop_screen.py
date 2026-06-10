@@ -143,18 +143,19 @@ class ShopScreen:
         for button in self.buttons:
             button.draw(surface)
 
-    # 初回開放の説明ページ（大きいアイコン＋名前＋効果の説明）
+    # 初回開放の説明ページ（大きいアイコン＋名前＋効果の説明）。
+    # 将来カタログに desc/price を書き忘れても落とさない（.get で既定値に落とす）
     def _draw_reveal(self, surface):
         item = self.reveal
         theme.draw_text(surface, "NEW POTION UNLOCKED!", 0, 220, theme.GOLD, theme.FONT_BIG)
         cx, cy = theme.to_screen(0, 120)
         draw_item_icon(surface, item["key"], int(cx), int(cy), scale=2.2)
-        theme.draw_text(surface, item["name"], 0, 40, theme.TEXT, theme.FONT_BUTTON)
+        theme.draw_text(surface, item.get("name", item["key"]), 0, 40, theme.TEXT, theme.FONT_BUTTON)
         y = -10
-        for line in item["desc"]:
+        for line in item.get("desc", []):
             theme.draw_text(surface, line, 0, y, theme.TEXT_DIM, theme.FONT_SCORE)
             y -= 28
-        theme.draw_text(surface, f'Price: {item["price"]} pt', 0, y - 12,
+        theme.draw_text(surface, f'Price: {item.get("price", 0)} pt', 0, y - 12,
                         theme.TEXT, theme.FONT_SCORE)
 
     def handle_click(self, x, y):
