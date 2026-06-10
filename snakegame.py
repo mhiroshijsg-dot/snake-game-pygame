@@ -12,7 +12,6 @@ from users import UserManager
 import theme
 import crashlog
 
-# TODO: magnet, shield同時発動中、片方が効果切れの点滅というのはUIが少しみにくい
 # TODO: 一定のスコアを超えたらポイントを消費して最初からスコアと長さを持った状態から始められるようにする？
 # TODO: アイテム数を増やす（ショップのカタログに unlock_score 付きで1行足す方式）
 # TODO: マリオの赤コインのようなイベント
@@ -37,16 +36,15 @@ try:
 except (OSError, pygame.error):
     pass
 
-# 画面が論理解像度(600x720)より小さいモニターでは、ウィンドウだけ縮小する。
-# ゲームは常に 600x720 のキャンバスへ描き、表示時に SCALE 倍で縮小転送するので
-# 座標系・速度・当たり判定などのゲーム性は一切変わらない。
-SCALE = theme.display_scale()
-if SCALE < 1.0:
-    window = pygame.display.set_mode((int(theme.WIDTH * SCALE), int(theme.HEIGHT * SCALE)))
-    surface = pygame.Surface((theme.WIDTH, theme.HEIGHT))  # 描画は常にこの論理キャンバスへ
-else:
-    window = pygame.display.set_mode((theme.WIDTH, theme.HEIGHT))
-    surface = window  # 等倍なら縮小転送を挟まない（従来どおり）
+# ウィンドウは自由にリサイズでき、Fキーで全画面と切り替えられる。
+# ゲームは常に 600x720 の論理キャンバスへ描き、表示時にウィンドウへ等比で縮小拡大
+# 転送する（余りはレターボックス）ので、座標系・速度・当たり判定などのゲーム性は
+# 一切変わらない。初期サイズはモニターに収まる倍率（小型ディスプレイでは小さく開く）。
+INITIAL_SCALE = theme.display_scale()
+WINDOWED_SIZE = (int(theme.WIDTH * INITIAL_SCALE), int(theme.HEIGHT * INITIAL_SCALE))
+window = pygame.display.set_mode(WINDOWED_SIZE, pygame.RESIZABLE)
+surface = pygame.Surface((theme.WIDTH, theme.HEIGHT))  # 論理キャンバス
+is_fullscreen = False
 
 pygame.display.set_caption(f"Snake Game v{theme.APP_VERSION}")
 clock = pygame.time.Clock()
@@ -114,11 +112,21 @@ while state.is_on:
             elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4):
                 # 数字キーで下部スロットのアイテムを使う（プレイ中のみ反応）
                 state.use_item(event.key - pygame.K_1)
-        # マウスはウィンドウ座標で来るので、縮小表示中は SCALE で論理座標へ割り戻す
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            state.handle_click(*theme.to_world(event.pos[0] / SCALE, event.pos[1] / SCALE))
-        elif event.type == pygame.MOUSEMOTION:
-            state.handle_motion(*theme.to_world(event.pos[0] / SCALE, event.pos[1] / SCALE))
+            elif event.key == pygame.K_f:
+                # 全画面 ⇔ ウィンドウの切り替え
+                is_fullscreen = not is_fullscreen
+                if is_fullscreen:
+                    window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+                else:
+                    window = pygame.display.set_mode(WINDOWED_SIZE, pygame.RESIZABLE)
+        # マウスはウィンドウ座標で来るので、レターボックス余白を引いて倍率で割り戻す
+        elif event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION):
+            s, ox, oy = theme.fit_scale(*window.get_size())
+            wx, wy = theme.to_world((event.pos[0] - ox) / s, (event.pos[1] - oy) / s)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                state.handle_click(wx, wy)
+            else:
+                state.handle_motion(wx, wy)
 
     # 実プレイ中だけマウスカーソルを隠す（メニュー・設定・ゲームオーバーは
     # ボタンをクリックするので表示しておく）。状態が変わった時だけ差し替える。
@@ -188,9 +196,16 @@ while state.is_on:
     # 下部アイテム帯のスロットは常時表示。残り時間バーは効果中のみ各スロット上に出る。
     items.draw(surface)
     state.draw(surface)
-    # 縮小表示中は論理キャンバスをウィンドウサイズへ縮小転送してから反映
-    if surface is not window:
-        pygame.transform.smoothscale(surface, window.get_size(), window)
+    # 論理キャンバスをウィンドウへ等比転送（余りはHUD色のレターボックス）
+    win_size = window.get_size()
+    if win_size == (theme.WIDTH, theme.HEIGHT):
+        window.blit(surface, (0, 0))  # 等倍ならそのまま（転送コスト最小）
+    else:
+        s, ox, oy = theme.fit_scale(*win_size)
+        scaled = pygame.transform.smoothscale(
+            surface, (int(theme.WIDTH * s), int(theme.HEIGHT * s)))
+        window.fill(theme.HUD_BG)
+        window.blit(scaled, (ox, oy))
     pygame.display.flip()
 
 pygame.quit()

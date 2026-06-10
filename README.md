@@ -13,7 +13,7 @@ Grab the zip for your OS from [Releases](../../releases).
 
 Save data is stored in `~/Library/Application Support/SnakeGame/` (macOS) or `%APPDATA%\SnakeGame\` (Windows).
 
-On small displays the window automatically scales down to fit — gameplay is unaffected.
+The window is freely resizable and `F` toggles fullscreen; on small displays it opens scaled down to fit. Gameplay is unaffected either way.
 
 ---
 
@@ -32,6 +32,7 @@ A short tutorial walks you through everything on first launch.
 | `S` | Start |
 | `R` | Retry |
 | `1` `2` `3` `4` | Use item in slot |
+| `F` | Toggle fullscreen |
 | `Q` | Quit |
 
 ---

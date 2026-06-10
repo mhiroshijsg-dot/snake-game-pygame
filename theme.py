@@ -115,18 +115,29 @@ def to_world(sx, sy):
     return (sx - PLAY_W / 2, HUD_HEIGHT + PLAY_H / 2 - sy)
 
 
-# モニターが論理解像度(WIDTH x HEIGHT)より小さい場合のウィンドウ縮小倍率（最大1.0）。
+# モニターが論理解像度(WIDTH x HEIGHT)より小さい場合の初期ウィンドウ縮小倍率（最大1.0）。
 # pygame.init() 後・set_mode() 前に呼ぶこと。画面情報が取れない環境では等倍。
+# 余白: macOSはメニューバー＋Dock＋タイトルバー、Windowsはタスクバー＋タイトルバーぶんを引く
 def display_scale():
+    margin_h = 170 if sys.platform == "darwin" else 110
     try:
         info = pygame.display.Info()
-        avail_w = info.current_w - 20   # ウィンドウ枠ぶんの余裕
-        avail_h = info.current_h - 80   # タイトルバー・メニューバー/タスクバーぶんの余裕
+        avail_w = info.current_w - 30
+        avail_h = info.current_h - margin_h
         if avail_w <= 0 or avail_h <= 0:
             return 1.0
         return min(1.0, avail_w / WIDTH, avail_h / HEIGHT)
     except pygame.error:
         return 1.0
+
+
+# ウィンドウサイズに収まる等比スケールと、中央寄せのレターボックス余白(px)を返す。
+# リサイズ可能ウィンドウ・全画面のどちらでも、毎フレームこの値で縮小転送する
+def fit_scale(win_w, win_h):
+    s = min(win_w / WIDTH, win_h / HEIGHT)
+    ox = (win_w - WIDTH * s) / 2
+    oy = (win_h - HEIGHT * s) / 2
+    return s, ox, oy
 
 
 # フォント実体をキャッシュして返す（pygame.font.init 後に呼ぶこと）
