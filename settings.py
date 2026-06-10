@@ -2,7 +2,8 @@
 # 障害物やアイテムなど将来の項目はここにフィールドを足すだけで拡張できる
 class Difficulty:
     def __init__(self, name, speed, obstacle_count, has_magnet=True, has_shield=True,
-                 item_duration_scale=1.0, orb_points=1, brick_points=1):
+                 item_duration_scale=1.0, orb_points=1, brick_points=1,
+                 shield_interval_scale=1.0):
         self.name = name
         self.speed = speed                  # スネークのスピード(px/秒)
         self.obstacle_count = obstacle_count  # レンガ障害物の数
@@ -11,6 +12,7 @@ class Difficulty:
         self.item_duration_scale = item_duration_scale  # アイテム効果時間の倍率(EASY長/HARD短)
         self.orb_points = orb_points        # オーブ1個で得る点数
         self.brick_points = brick_points    # ブロック1個破壊で得る点数（CLASSICは障害物なしで未使用）
+        self.shield_interval_scale = shield_interval_scale  # シールド出現間隔の倍率(HARDは<1で頻出)
         # 例: 将来ここに item_rate などを追加していく
         # （foodの当たり判定は格子化により難易度非依存になったので持たない）
 
@@ -23,7 +25,7 @@ DIFFICULTIES = {
     "NORMAL":  Difficulty("NORMAL", speed=200, obstacle_count=10, item_duration_scale=1.0,
                           orb_points=2, brick_points=3),
     "HARD":    Difficulty("HARD", speed=400, obstacle_count=18, item_duration_scale=0.6,
-                          orb_points=4, brick_points=6),
+                          orb_points=4, brick_points=6, shield_interval_scale=0.6),
     "CLASSIC": Difficulty("CLASSIC", speed=230, obstacle_count=0, has_magnet=False, has_shield=False,
                           orb_points=2, brick_points=0),
 }

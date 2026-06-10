@@ -18,8 +18,11 @@ Save data is stored in `~/Library/Application Support/SnakeGame/` (macOS) or `%A
 ## How to play
 
 Use the arrow keys to steer the snake and eat the purple orbs to grow longer.  
+A golden bonus orb appears once in a while — grab it before it fades for 5x points.  
 Hit a wall, your own body, or a brick obstacle and it's game over.  
 Fill the entire board to trigger the PERFECT! clear.
+
+A short tutorial walks you through everything on first launch.
 
 | Key | Action |
 |-----|--------|
@@ -45,9 +48,10 @@ Fill the entire board to trigger the PERFECT! clear.
 ## Items
 
 - **Magnet** — greatly widens the orb pickup radius for a short time
-- **Shield** — survive one brick collision; the block is destroyed on impact
+- **Shield** — smash through bricks for a short time (each smash scores more than an orb)
+- **Golden Orb** — rare, short-lived, worth 5× points
 - **Double Points Potion** — ×2 score multiplier for 10 s (snake turns gold)
-- **Triple Duration Potion** — the next magnet or shield you pick up lasts 3× as long
+- **Triple Duration Potion** — magnets and shields last 3× longer, including one already active
 
 ---
 
@@ -90,7 +94,9 @@ If the game crashes unexpectedly, a `crash.log` file is written to the same fold
 snakegame.py      Main loop — reads input, advances game state, draws each frame
 game_state.py     Screen manager — routes between title, play, game over, shop, etc.
 snake.py          Snake position history, grid-locked movement, collision checks
-food.py           Orb spawning (avoids snake, bricks, other orbs)
+food.py           Orb spawning (avoids snake, bricks, other orbs) + golden bonus orb
+register_screen.py  First-launch player registration
+tutorial_screen.py  Tutorial slideshow (shared with the How to Play screen)
 obstacle.py       Brick obstacles — per-block lifetime, respawn, end-game fade-out
 magnet.py         Magnet item logic — spawn pool, pickup, food-radius boost timer
 shield.py         Shield item logic — spawn pool, pickup, block-destroy on collision

@@ -2,8 +2,9 @@ import pygame
 import theme
 
 # 使用可能なアイテム種別の表示順（所持アイテムをこの順でスロットへ詰める）。
-# 将来アイテムを増やしたらここに key を足す（ショップのカタログと対応）。
-ITEM_ORDER = ["double_points", "duration_boost"]
+# ショップの解放順（unlock_score の低い順）に合わせる。将来アイテムを増やしたら
+# ここに key を足す（ショップのカタログと対応）。
+ITEM_ORDER = ["duration_boost", "double_points"]
 
 # アイテムごとのポーション液体色（スロット/ショップのアイコン・残り時間バーで共用）
 ITEM_COLORS = {
@@ -82,16 +83,28 @@ class DoublePointsEffect(_TimedEffect):
         self.snake.tint = theme.SNAKE_BOOST if on else None
 
 
-# 一定時間、効果中に拾った magnet/shield の効果持続を3倍にする。
-# 効果時間は長め。拾った物・回数を問わず、効果中の取得はすべて3倍になる
-# （magnet/shield 側が _pick_up 時に duration_multiplier を掛ける）。
+# 一定時間、magnet/shield の効果持続を3倍にする。
+# 効果時間は長め。効果中に拾った物はすべて3倍になり（magnet/shield 側が _pick_up 時に
+# duration_multiplier を掛ける）、さらに飲んだ瞬間に発動中だった効果の残り時間も3倍に伸びる
+# （targets に snakegame が MagnetManager/ShieldManager をセットする）。
 class DurationBoostEffect(_TimedEffect):
     DURATION = 30.0
     MULTIPLIER = 3
 
+    def __init__(self, snake, settings):
+        super().__init__(snake, settings)
+        self.targets = []  # 発動中の効果を伸ばす対象（extend_active を持つマネージャ）
+
     @property
     def duration_multiplier(self):
         return self.MULTIPLIER if self.active else 1
+
+    def activate(self):
+        ok = super().activate()
+        # 既に発動中の magnet/shield があれば、その残り時間も3倍に伸ばす
+        for manager in self.targets:
+            manager.extend_active(self.MULTIPLIER)
+        return ok
 
 
 # プレイ画面下部のアイテムスロットHUD（4枠）。所持しているアイテムを

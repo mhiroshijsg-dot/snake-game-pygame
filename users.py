@@ -45,16 +45,20 @@ class UserManager:
     def __init__(self):
         self.users = {}      # 名前 -> {難易度キー: ハイスコア}
         self.current = None  # 現在選択中のユーザー名
+        # チュートリアルを見たか（ファイル全体で1つ。新規インストールは登録後に、
+        # 旧バージョンからの更新者は初回起動時に1度だけチュートリアルが出る）
+        self.tutorial_done = False
         self._load()
-        if not self.users:
-            self._create_default()
+        # ユーザーが1人もいない（=初回起動）場合はここでは作らない。
+        # GameState が登録画面（RegisterScreen）を出して最初のユーザーを作らせる。
 
     def _blank_scores(self):
         return {key: 0 for key in DIFFICULTY_ORDER}
 
-    # 1ユーザー分の新スキーマ: {scores, wallet, inventory}
+    # 1ユーザー分の新スキーマ: {scores, wallet, inventory, seen_items}
     def _blank_record(self):
-        return {"scores": self._blank_scores(), "wallet": 0, "inventory": {}}
+        return {"scores": self._blank_scores(), "wallet": 0, "inventory": {},
+                "seen_items": []}
 
     # 読み込んだ1ユーザー分を新スキーマに正規化する。
     # 旧フラット形式（値が難易度→intの辞書）も読めるようにする（名簿を失わないため）。
@@ -69,6 +73,9 @@ class UserManager:
             inventory = raw.get("inventory", {})
             if isinstance(inventory, dict):
                 rec["inventory"] = {k: _to_int(v) for k, v in inventory.items()}
+            seen = raw.get("seen_items", [])
+            if isinstance(seen, list):
+                rec["seen_items"] = [str(s) for s in seen]
         elif isinstance(raw, dict):
             # 旧フラット形式: {難易度: スコア}
             rec["scores"].update({k: _to_int(v) for k, v in raw.items()})
@@ -90,6 +97,8 @@ class UserManager:
             self.current = data.get("current")
             if self.current not in self.users:
                 self.current = next(iter(self.users), None)
+            # v1.1以前のファイルにはこのキーが無い → False（=初回起動時に1度見せる）
+            self.tutorial_done = bool(data.get("tutorial_done", False))
         except FileNotFoundError:
             self.users = {}
             self.current = None
@@ -106,13 +115,6 @@ class UserManager:
             os.replace(USERS_FILE, USERS_FILE.with_suffix(".json.bak"))
         except OSError:
             pass
-
-    # users.json が無い初回は、まっさらな Player1 を1人作って始める
-    def _create_default(self):
-        name = "Player1"
-        self.users[name] = self._blank_record()
-        self.current = name
-        self.save()
 
     def names(self):
         return list(self.users.keys())
@@ -190,6 +192,22 @@ class UserManager:
         inv[key] = inv.get(key, 0) + n
         self.save()
 
+    # チュートリアルを見終わった（SKIP含む）。以後は起動時に出さない
+    def mark_tutorial_done(self):
+        if not self.tutorial_done:
+            self.tutorial_done = True
+            self.save()
+
+    # --- ショップで「開放」演出を見たポーションの記録（ユーザー単位）---
+    def has_seen_item(self, key):
+        return key in self.users.get(self.current, {}).get("seen_items", [])
+
+    def mark_item_seen(self, key):
+        seen = self._record().setdefault("seen_items", [])
+        if key not in seen:
+            seen.append(key)
+            self.save()
+
     # 在庫が1個以上あれば1個消費して True。無ければ False
     def use_item(self, key):
         inv = self._record()["inventory"]
@@ -206,7 +224,8 @@ class UserManager:
         tmp = USERS_FILE.with_suffix(".json.tmp")
         try:
             with open(tmp, "w", encoding="utf-8") as f:
-                json.dump({"current": self.current, "users": self.users},
+                json.dump({"current": self.current, "tutorial_done": self.tutorial_done,
+                           "users": self.users},
                           f, ensure_ascii=False, indent=2)
             os.replace(tmp, USERS_FILE)
         except OSError:

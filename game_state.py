@@ -3,12 +3,15 @@ from settings_screen import SettingsScreen
 from game_over_screen import GameOverScreen
 from how_to_screen import HowToScreen
 from shop_screen import ShopScreen
+from register_screen import RegisterScreen
+from tutorial_screen import TutorialScreen
 from snake import MAX_SCORE
 
 
 class GameState:
     def __init__(self, snake, food, obstacles, magnets, shields, items,
-                 score_counter, settings, users, test_mode=False):
+                 score_counter, settings, users, test_mode=False,
+                 test_first_run=False, test_shop_reveal=False):
         self.snake = snake
         self.food = food
         self.obstacles = obstacles
@@ -26,6 +29,8 @@ class GameState:
         self.is_howto = False
         self.is_shop = False
         self.is_cleared = False     # 盤面クリア（理論上の最大に到達）
+        self.is_register = False    # 初回起動のユーザー登録中
+        self.is_tutorial = False    # 登録直後のチュートリアル表示中
         self._run_difficulty = None  # 今プレイ中の回で使っている難易度
         self._howto_from_settings = False  # 遊び方を閉じた時の戻り先
         self._shop_from_over = False        # ショップを閉じた時の戻り先（True=ゲームオーバー）
@@ -41,15 +46,41 @@ class GameState:
                                         self.open_howto, self.open_shop, users)
         self.settings_screen = SettingsScreen(self.settings, self.close_settings,
                                               self.open_howto, users)
-        self.game_over_screen = GameOverScreen(self.retry, self.quit, self.open_settings,
+        self.game_over_screen = GameOverScreen(self.retry, self.back_to_title, self.open_settings,
                                                self.open_shop, users)
-        self.how_to_screen = HowToScreen(self.close_howto)
-        self.shop_screen = ShopScreen(self.close_shop, users)
+        self.how_to_screen = HowToScreen(self.close_howto, users)
+        self.shop_screen = ShopScreen(self.close_shop, users, test_reveal=test_shop_reveal)
+        self.register_screen = RegisterScreen(users, self.finish_register)
+        self.tutorial_screen = TutorialScreen(self.finish_tutorial)
+        # 初回起動（ユーザーが1人もいない）またはテストフラグなら、
+        # タイトルの前に 登録 → チュートリアル のフローを挟む。
+        # 旧バージョンから更新した人（ユーザーはいるが未閲覧）にはチュートリアルだけ見せる
+        if test_first_run or not users.names():
+            self.is_register = True
+            self.register_screen.show()
+        elif not users.tutorial_done:
+            self.is_tutorial = True
+            self.tutorial_screen.show()
+        else:
+            self.start_screen.show()
+
+    # 登録完了: チュートリアルへ進む
+    def finish_register(self):
+        self.register_screen.hide()
+        self.is_register = False
+        self.is_tutorial = True
+        self.tutorial_screen.show()
+
+    # チュートリアル完了（SKIP含む）: 見た記録を保存してタイトル画面へ
+    def finish_tutorial(self):
+        self.users.mark_tutorial_done()
+        self.tutorial_screen.hide()
+        self.is_tutorial = False
         self.start_screen.show()
 
     def start(self):
-        # スタート画面にいる時だけ開始（プレイ中・設定中・ゲームオーバー中は無視）
-        if self.is_started or self.is_settings:
+        # スタート画面にいる時だけ開始（プレイ中・設定中・登録/チュートリアル中は無視）
+        if self.is_started or self.is_settings or self.is_register or self.is_tutorial:
             return
         self.start_screen.hide()
         self.is_cleared = False
@@ -69,7 +100,7 @@ class GameState:
 
     # 's'キー: スタート画面ならSTART。ゲームオーバーでボタンがSTART表示(難易度変更後)なら再開。
     def press_start_key(self):
-        if self.is_settings or self.is_howto:
+        if self.is_settings or self.is_howto or self.is_register or self.is_tutorial:
             return
         if self.is_over:
             if self._difficulty_changed():
@@ -225,12 +256,32 @@ class GameState:
         self._apply_test_length()
         self.is_over = False
 
+    # ゲームオーバー画面のBACK: 盤面を片付けて最初のタイトル画面に戻る
+    def back_to_title(self):
+        if not self.is_over or self.is_settings:
+            return
+        self.game_over_screen.hide()
+        self.is_over = False
+        self.is_started = False
+        self.is_cleared = False
+        self.score_counter.reset()
+        self.snake.hide()
+        self.food.hide()
+        self.obstacles.hide()
+        self.magnets.hide()
+        self.shields.hide()
+        self.start_screen.show()
+
     def quit(self):
         self.score_counter.save_high_score()
         self.is_on = False
 
     # 今アクティブな画面を返す（ゲーム中はNone）
     def _active_screen(self):
+        if self.is_register:
+            return self.register_screen
+        if self.is_tutorial:
+            return self.tutorial_screen
         if self.is_howto:
             return self.how_to_screen
         if self.is_shop:
@@ -243,12 +294,16 @@ class GameState:
             return self.game_over_screen
         return None
 
-    # 設定画面でユーザー名を入力中か（この間はキー入力をテキストへ回す）
+    # ユーザー名を入力中か（この間はキー入力をテキストへ回す）。
+    # 初回起動の登録画面と、設定画面の input モードの2箇所がある
     def wants_text_input(self):
-        return self.is_settings and self.settings_screen.mode == "input"
+        return self.is_register or (self.is_settings and self.settings_screen.mode == "input")
 
     def handle_text_event(self, event):
-        self.settings_screen.handle_text_event(event)
+        if self.is_register:
+            self.register_screen.handle_text_event(event)
+        else:
+            self.settings_screen.handle_text_event(event)
 
     # 状態に応じてクリックを振り分ける
     def handle_click(self, x, y):

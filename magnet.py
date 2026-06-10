@@ -45,7 +45,7 @@ class Magnet:
                              (lx, cy - 2 + leg + 3), th)
 
 
-CAPACITY = 2               # 同時に出現しうるマグネットの数（将来ショップで増やす想定）
+CAPACITY = 3               # 同時に出現しうるマグネットの数（将来ショップで増やす想定）
 SPAWN_STAGGER = 4.0        # 各スポナーの初回出現をずらす間隔(秒)
 
 
@@ -70,6 +70,8 @@ class MagnetManager:
         self.duration_source = duration_source
         self.visible = True
         self.capacity = CAPACITY
+        # 重なり禁止の相手マネージャ（shield など）。snakegame.py で生成後にセットされる
+        self.peers = []
         self.boost_timer = 0.0
         self.boost_owner = -1     # 現在の効果を発生させたスポナーの index（-1=効果なし）
         self.spawners = []
@@ -85,6 +87,11 @@ class MagnetManager:
     @property
     def boosted(self):
         return self.boost_timer > 0
+
+    # 効果時間3倍ポーションを発動中に飲んだ時: 残り時間を伸ばす
+    def extend_active(self, mult):
+        if self.boost_timer > 0:
+            self.boost_timer *= mult
 
     # food.check_eaten に渡す当たり判定の倍率
     @property
@@ -109,10 +116,12 @@ class MagnetManager:
         for segment in self.snake.segments:
             if m.distance_sq(segment) < SAFE_DISTANCE_SQ:
                 return False
-        # food と被らない（仕様）
+        # food（ボーナスオーブ含む）と被らない（仕様）
         for f in self.food.foods:
             if m.distance_sq(f) < GRID_SQ:
                 return False
+        if self.food.bonus is not None and m.distance_sq(self.food.bonus) < GRID_SQ:
+            return False
         # レンガと被らない
         for block in self.obstacles.blocks:
             if m.distance_sq(block) < GRID_SQ:
@@ -121,7 +130,16 @@ class MagnetManager:
         for sp in self.spawners:
             if sp.item is not None and m.distance_sq(sp.item) < GRID_SQ:
                 return False
+        # 盤面に出ている他種アイテム（シールド等）とも被らない
+        for mgr in self.peers:
+            for it in mgr.items_on_board():
+                if m.distance_sq(it) < GRID_SQ:
+                    return False
         return True
+
+    # 盤面に出ているマグネットの一覧（他マネージャの重なりチェック用）
+    def items_on_board(self):
+        return [sp.item for sp in self.spawners if sp.item is not None]
 
     # 拾われた時: 効果を満タンから再発動し、所有権を i へ移す（A効果中にBを拾うと上書き）
     def _pick_up(self, i):

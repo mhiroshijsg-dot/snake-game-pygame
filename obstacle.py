@@ -59,6 +59,9 @@ class ObstacleManager:
     def __init__(self, snake, settings):
         self.snake = snake
         self.settings = settings
+        # 盤面アイテム(magnet/shield)のマネージャ。snakegame.py で生成後にセットされ、
+        # レンガがアイテムと同じセルに湧かないようにする
+        self.item_managers = []
         self.visible = True
         self.blocks = []
         self.debris = []   # 破壊エフェクトの破片
@@ -90,15 +93,22 @@ class ObstacleManager:
         for segment in self.snake.segments:
             if b.distance_sq(segment) < SAFE_DISTANCE_SQ:
                 return False
-        # food（同じセル不可）
+        # food（ボーナスオーブ含む。同じセル不可）
         if food:
             for f in food.foods:
                 if b.distance_sq(f) < GRID_SQ:
                     return False
+            if food.bonus is not None and b.distance_sq(food.bonus) < GRID_SQ:
+                return False
         # 他のレンガ（同じセル不可、隣接は許容）
         for other in self.blocks:
             if other.distance_sq(b) < GRID_SQ:
                 return False
+        # 盤面に出ている magnet/shield（同じセル不可）
+        for mgr in self.item_managers:
+            for item in mgr.items_on_board():
+                if b.distance_sq(item) < GRID_SQ:
+                    return False
         return True
 
     def _populate(self, food=None):

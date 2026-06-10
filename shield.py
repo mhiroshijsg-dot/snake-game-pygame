@@ -40,7 +40,7 @@ class ShieldItem:
         pygame.draw.line(surface, theme.SHIELD_EMBLEM, (cx - 5, cy - 2), (cx + 5, cy - 2), 2)
 
 
-CAPACITY = 2               # 同時に出現しうるシールドの数（将来ショップで増やす想定）
+CAPACITY = 3               # 同時に出現しうるシールドの数（将来ショップで増やす想定）
 SPAWN_STAGGER = 4.0        # 各スポナーの初回出現をずらす間隔(秒)
 
 
@@ -64,14 +64,17 @@ class ShieldManager:
         self.duration_source = duration_source
         self.visible = True
         self.capacity = CAPACITY
+        # 重なり禁止の相手マネージャ（magnet など）。snakegame.py で生成後にセットされる
+        self.peers = []
         self.active_timer = 0.0
         self.active_owner = -1
         self.spawners = []
         self._build_spawners()
 
     def _build_spawners(self):
-        # 初回はマグネットとずらし、さらにスポナー同士もずらす
-        self.spawners = [_Spawner(INITIAL_OFFSET + i * SPAWN_STAGGER)
+        # 初回はマグネットとずらし、さらにスポナー同士もずらす（HARDは間隔短縮）
+        scale = self.settings.difficulty.shield_interval_scale
+        self.spawners = [_Spawner((INITIAL_OFFSET + i * SPAWN_STAGGER) * scale)
                          for i in range(self.capacity)]
         self.active_timer = 0.0
         self.active_owner = -1
@@ -80,8 +83,15 @@ class ShieldManager:
     def active(self):
         return self.active_timer > 0
 
+    # 効果時間3倍ポーションを発動中に飲んだ時: 残り時間を伸ばす
+    def extend_active(self, mult):
+        if self.active_timer > 0:
+            self.active_timer *= mult
+
     def _next_interval(self):
-        return SPAWN_INTERVAL + random.uniform(-SPAWN_JITTER, SPAWN_JITTER)
+        # HARD は shield_interval_scale < 1 で間隔が縮み、出現率が上がる
+        base = SPAWN_INTERVAL + random.uniform(-SPAWN_JITTER, SPAWN_JITTER)
+        return base * self.settings.difficulty.shield_interval_scale
 
     def _make_item(self):
         ttl = ITEM_LIFETIME * self.settings.difficulty.item_duration_scale  # EASY長/HARD短
@@ -102,6 +112,8 @@ class ShieldManager:
         for f in self.food.foods:
             if it.distance_sq(f) < GRID_SQ:
                 return False
+        if self.food.bonus is not None and it.distance_sq(self.food.bonus) < GRID_SQ:
+            return False
         for block in self.obstacles.blocks:
             if it.distance_sq(block) < GRID_SQ:
                 return False
@@ -109,7 +121,16 @@ class ShieldManager:
         for sp in self.spawners:
             if sp.item is not None and it.distance_sq(sp.item) < GRID_SQ:
                 return False
+        # 盤面に出ている他種アイテム（マグネット等）とも被らない
+        for mgr in self.peers:
+            for other in mgr.items_on_board():
+                if it.distance_sq(other) < GRID_SQ:
+                    return False
         return True
+
+    # 盤面に出ているシールドの一覧（他マネージャの重なりチェック用）
+    def items_on_board(self):
+        return [sp.item for sp in self.spawners if sp.item is not None]
 
     # 拾われた時: 効果を満タンから再発動し、所有権を i へ移す（A効果中にBを拾うと上書き）
     def _pick_up(self, i):

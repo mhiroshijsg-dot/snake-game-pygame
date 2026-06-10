@@ -1,4 +1,6 @@
+import pygame
 from button import Button
+from shop_screen import new_potions
 import theme
 
 
@@ -15,11 +17,15 @@ class StartScreen:
 
     def show(self):
         self.visible = True
+        # 未開放の新ポーションがあれば SHOP ボタンを金色にして誘導する
+        shop_new = bool(new_potions(self.users))
         self.buttons = [
             Button("START", 0, 20, self.on_start,
                    color=theme.PRIMARY, hover_color=theme.PRIMARY_HOVER),
             Button("SHOP", 0, -56, self.on_shop,
-                   color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),
+                   color=theme.GOLD if shop_new else theme.SECONDARY,
+                   hover_color=theme.GOLD if shop_new else theme.SECONDARY_HOVER,
+                   text_color=theme.TEXT if shop_new else theme.BUTTON_TEXT),
             Button("QUIT", 0, -132, self.on_quit,
                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),
             # 右上の設定アイコン（歯車を図形で描く小さな丸ボタン）
@@ -48,6 +54,9 @@ class StartScreen:
         # 右下にバージョン表示（配布物の識別用）
         theme.draw_text(surface, f"v{theme.APP_VERSION}", 255, -260,
                         theme.TEXT_DIM, theme.FONT_SCORE)
+        # 未開放の新ポーションがあれば SHOP ボタン横で「NEW POTION!」を点滅させる
+        if new_potions(self.users) and (pygame.time.get_ticks() // 400) % 2 == 0:
+            theme.draw_text(surface, "NEW POTION!", 195, -56, theme.GOLD, theme.FONT_BUTTON)
         for button in self.buttons:
             button.draw(surface)
 

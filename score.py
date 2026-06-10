@@ -90,7 +90,7 @@ class ScoreCounter:
 
     # 上部HUD帯にプレイヤー・難易度・スコア・ベストを1行で表示
     def _draw_hud(self, surface):
-        player = self.users.current
+        player = self.users.current or ""  # 初回登録が済むまでは空欄
         mode = self.settings.difficulty_key
         # メニュー等（非プレイ中）は現在スコアを出さない（前回の値が残って見えるのを防ぐ）
         if self.in_play:
