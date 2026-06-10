@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.idea/
+users.json
+users.json.bak
+users.json.tmp
+crash.log
+HANDOFF.md
+.claude/
