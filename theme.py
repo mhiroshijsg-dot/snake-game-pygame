@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 import pygame
 
-APP_VERSION = "1.2"  # ウィンドウタイトル・タイトル画面・配布物の名前で使う
+APP_VERSION = "1.3"  # ウィンドウタイトル・タイトル画面・配布物の名前で使う
 
 
 # 同梱リソース（assets/ 等）の絶対パス。PyInstallerのfrozen実行では展開先

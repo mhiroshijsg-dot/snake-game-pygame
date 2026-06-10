@@ -13,6 +13,8 @@ Grab the zip for your OS from [Releases](../../releases).
 
 Save data is stored in `~/Library/Application Support/SnakeGame/` (macOS) or `%APPDATA%\SnakeGame\` (Windows).
 
+On small displays the window automatically scales down to fit — gameplay is unaffected.
+
 ---
 
 ## How to play
