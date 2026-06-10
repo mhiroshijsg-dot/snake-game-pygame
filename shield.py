@@ -192,12 +192,13 @@ class ShieldManager:
         blink_on = self.active_timer >= BLINK_LAST or (pygame.time.get_ticks() // 180) % 2 == 0
         if self.active and blink_on:
             r = int(SIZE * 1.15)
+            # バリアは濃く・くっきり（中の塗りを濃くし、外周リングを最大輝度・太めに）
             pulse = (math.sin(pygame.time.get_ticks() * 0.009) + 1) / 2
-            alpha = int(45 + 55 * pulse)
+            alpha = int(90 + 40 * pulse)
             bubble = pygame.Surface((r * 2 + 6, r * 2 + 6), pygame.SRCALPHA)
             c = (r + 3, r + 3)
             pygame.draw.circle(bubble, (*theme.SHIELD_AURA[:3], alpha), c, r)
-            pygame.draw.circle(bubble, (*theme.SHIELD_AURA[:3], 220), c, r, 3)
+            pygame.draw.circle(bubble, (*theme.SHIELD_AURA[:3], 255), c, r, 4)
             hx, hy = theme.to_screen(self.snake.head.x, self.snake.head.y)
             surface.blit(bubble, (hx - r - 3, hy - r - 3))
         for sp in self.spawners:

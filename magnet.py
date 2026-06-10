@@ -206,8 +206,9 @@ class MagnetManager:
         blink_on = self.boost_timer >= BLINK_LAST or (pygame.time.get_ticks() // 180) % 2 == 0
         if self.boosted and blink_on:
             radius = int(EAT_DISTANCE * BOOST_MULTIPLIER)
-            pulse = (math.sin(pygame.time.get_ticks() * 0.008) + 1) / 2
-            alpha = int(60 + 70 * pulse)
+            # 脈動は控えめに（振れ幅を小さく・ゆっくり）。平均の明るさは従来と同程度
+            pulse = (math.sin(pygame.time.get_ticks() * 0.005) + 1) / 2
+            alpha = int(85 + 20 * pulse)
             aura = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
             pygame.draw.circle(aura, (*theme.MAGNET_AURA[:3], alpha), (radius, radius), radius)
             hx, hy = theme.to_screen(self.snake.head.x, self.snake.head.y)
