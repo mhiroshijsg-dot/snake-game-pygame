@@ -196,6 +196,20 @@ class FoodManager:
                 return 1
         return 0
 
+    # スーパーマグネット用: 盤面の全オーブ（ボーナス含む）を回収し、
+    # (x, y, 得点倍率) のリストを返す。通常オーブは別の場所へ置き直し（数は不変）、
+    # ボーナスは消えて次の出現タイマーが始まる
+    def collect_all(self):
+        collected = [(f.x, f.y, 1) for f in self.foods]
+        if self.bonus is not None:
+            collected.append((self.bonus.x, self.bonus.y, BONUS_MULTIPLIER))
+            self.bonus = None
+            self.bonus_timer = self._next_bonus_interval()
+        items = self._items_on_board()
+        for food in self.foods:
+            food.refresh(self.snake, self.foods, self.obstacles, items)
+        return collected
+
     def hide(self):
         self.visible = False
 

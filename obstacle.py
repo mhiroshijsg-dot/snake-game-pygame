@@ -6,6 +6,7 @@ from snake import GRID, OFFSET, SIZE, DIRECTIONS, MAX_SCORE, TAIL_HIT_SQ
 
 DEBRIS_COUNT = 8           # 破壊時に飛び散る破片の数
 DEBRIS_TTL = 0.5           # 破片の寿命(秒)
+BLAST_RESPAWN_PAUSE = 3.0  # ボムで全壊した後、レンガの再湧きを止める時間(秒)
 
 SAFE_DISTANCE = SIZE        # 蛇のセグメントからこれ以上離す(px)
 SAFE_DISTANCE_SQ = SAFE_DISTANCE * SAFE_DISTANCE
@@ -65,6 +66,7 @@ class ObstacleManager:
         self.visible = True
         self.blocks = []
         self.debris = []   # 破壊エフェクトの破片
+        self.respawn_pause = 0.0  # ボム後の再湧き停止の残り時間
         self._populate()
 
     # --- 配置 ---
@@ -138,6 +140,17 @@ class ObstacleManager:
                 return True
         return False
 
+    # ボム用: 全レンガを破壊して個数を返す（破片エフェクト付き）。
+    # 直後に湧き直すと爽快感が無いので、しばらく再湧きを止める
+    def blast_all(self):
+        count = len(self.blocks)
+        for block in self.blocks:
+            self._spawn_debris(block.x, block.y)
+        self.blocks = []
+        if count:
+            self.respawn_pause = BLAST_RESPAWN_PAUSE
+        return count
+
     def _spawn_debris(self, x, y):
         for _ in range(DEBRIS_COUNT):
             ang = random.uniform(0, 2 * math.pi)
@@ -158,12 +171,15 @@ class ObstacleManager:
         # 多すぎるぶんは古い順に消す
         while len(self.blocks) > target:
             self.blocks.pop(0)
-        # 足りないぶんは新しい場所に湧かせる
-        while len(self.blocks) < target:
-            b = self._make_block(food)
-            if b is None:
-                break
-            self.blocks.append(b)
+        # 足りないぶんは新しい場所に湧かせる（ボム直後の停止時間中は湧かせない）
+        if self.respawn_pause > 0:
+            self.respawn_pause = max(0.0, self.respawn_pause - dt)
+        else:
+            while len(self.blocks) < target:
+                b = self._make_block(food)
+                if b is None:
+                    break
+                self.blocks.append(b)
         # 破片を進める
         for p in self.debris:
             p["ttl"] -= dt
@@ -182,6 +198,7 @@ class ObstacleManager:
     def reset(self):
         self.visible = True
         self.debris = []
+        self.respawn_pause = 0.0
         self._populate()
 
     def draw(self, surface):

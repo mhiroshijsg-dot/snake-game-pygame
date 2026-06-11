@@ -4,7 +4,8 @@ from food import FoodManager, EAT_DISTANCE
 from obstacle import ObstacleManager
 from magnet import MagnetManager
 from shield import ShieldManager
-from items import DoublePointsEffect, DurationBoostEffect, ItemBar
+from items import (DoublePointsEffect, DurationBoostEffect, SuperMagnetEffect,
+                   BombEffect, ItemBar)
 from score import ScoreCounter
 from game_state import GameState
 from settings import Settings
@@ -13,9 +14,12 @@ import theme
 import crashlog
 
 # TODO: 毎回開発元が信用できないと言われてアプデのたびに承認する必要があるのが非常に面倒、どうにかならないものか
-# TODO: アイテム数を増やす（ショップのカタログに unlock_score 付きで1行足す方式）
+# TODO: オーブの出現数を上昇させるアイテムをショップに追加？
+# TODO: アイテムの効果範囲を広げる恒久強化システム
+# TODO: スキンの変更？
 # TODO: マリオの赤コインのようなイベント
 # TODO: ボーナスイベントとして全面オーブのステージに転移する
+# TODO: ステージ制？
 
 # クリア演出の確認用。Trueにすると最大-1の長さで開始し、オーブ1個でクリアできる
 TEST_CLEAR = False
@@ -64,13 +68,16 @@ magnets = MagnetManager(snake, food, obstacles, settings, duration_effect)
 shields = ShieldManager(snake, food, obstacles, settings, duration_effect)
 # 効果時間3倍ポーションは、飲んだ瞬間に発動中だった magnet/shield の残り時間も伸ばす
 duration_effect.targets = [magnets, shields]
-items = ItemBar(snake, users, settings, double_effect, duration_effect)  # 下部アイテムスロットHUD
+score_counter = ScoreCounter(settings, users)
+super_magnet_effect = SuperMagnetEffect(snake, food, score_counter, double_effect)  # 全オーブ回収
+bomb_effect = BombEffect(obstacles, score_counter, double_effect)                   # 全レンガ破壊→得点化
+items = ItemBar(snake, users, settings, double_effect, duration_effect,
+                super_magnet_effect, bomb_effect)  # 下部アイテムスロットHUD
 # オーブ・レンガ・magnet・shield が互いに同じセルへ湧かないよう、相互参照を張る
 magnets.peers = [shields]
 shields.peers = [magnets]
 food.item_managers = [magnets, shields]
 obstacles.item_managers = [magnets, shields]
-score_counter = ScoreCounter(settings, users)
 state = GameState(snake, food, obstacles, magnets, shields, items,
                   score_counter, settings, users, test_mode=TEST_CLEAR,
                   test_first_run=TEST_FIRST_RUN, test_shop_reveal=TEST_SHOP_REVEAL,

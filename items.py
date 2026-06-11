@@ -1,10 +1,11 @@
+import math
 import pygame
 import theme
 
 # 使用可能なアイテム種別の表示順（所持アイテムをこの順でスロットへ詰める）。
 # ショップの解放順（unlock_score の低い順）に合わせる。将来アイテムを増やしたら
 # ここに key を足す（ショップのカタログと対応）。
-ITEM_ORDER = ["duration_boost", "double_points"]
+ITEM_ORDER = ["duration_boost", "double_points", "super_magnet", "bomb"]
 
 # アイテムごとのポーション液体色（スロット/ショップのアイコン・残り時間バーで共用）
 ITEM_COLORS = {
@@ -26,9 +27,37 @@ def draw_potion(surface, cx, cy, scale=1.0, liquid=theme.POTION_LIQUID):
     pygame.draw.rect(surface, theme.POTION_CORK, cork, border_radius=int(2 * s))
 
 
-# item_key に応じたアイコン（ポーション）を描く（ItemBar / ショップで共用）
+# 金色の馬蹄マグネット（スーパーマグネットのアイコン。盤面の Magnet と同じ形・金色）
+def _draw_super_magnet_icon(surface, cx, cy, s):
+    r = 8 * s
+    th = max(2, int(5 * s))
+    leg = 6 * s
+    rect = pygame.Rect(cx - r, cy - r - 2 * s, 2 * r, 2 * r)
+    pygame.draw.arc(surface, theme.GOLD, rect, 0, math.pi, th)
+    for side in (-1, 1):
+        lx = cx + side * (r - th / 2)
+        pygame.draw.line(surface, theme.GOLD, (lx, cy - 2 * s), (lx, cy - 2 * s + leg), th)
+        pygame.draw.line(surface, theme.MAGNET_TIP, (lx, cy - 2 * s + leg),
+                         (lx, cy - 2 * s + leg + 3 * s), th)
+
+
+# 導火線つきの丸い爆弾（ボムのアイコン）
+def _draw_bomb_icon(surface, cx, cy, s):
+    pygame.draw.circle(surface, theme.TEXT, (cx, cy + 2 * s), int(8 * s))          # 本体
+    pygame.draw.line(surface, theme.POTION_CORK, (cx + 3 * s, cy - 4 * s),         # 導火線
+                     (cx + 6 * s, cy - 9 * s), max(2, int(2 * s)))
+    pygame.draw.circle(surface, theme.GOLD, (cx + 6 * s, cy - 9 * s), max(2, int(2.5 * s)))  # 火花
+    pygame.draw.circle(surface, theme.ORB_HIGHLIGHT, (cx - 3 * s, cy - s), max(1, int(2 * s)))  # 光沢
+
+
+# item_key に応じたアイコンを描く（ItemBar / ショップ / チュートリアルで共用）
 def draw_item_icon(surface, key, cx, cy, scale=1.0):
-    draw_potion(surface, cx, cy, scale=scale, liquid=ITEM_COLORS.get(key, theme.POTION_LIQUID))
+    if key == "super_magnet":
+        _draw_super_magnet_icon(surface, cx, cy, scale)
+    elif key == "bomb":
+        _draw_bomb_icon(surface, cx, cy, scale)
+    else:
+        draw_potion(surface, cx, cy, scale=scale, liquid=ITEM_COLORS.get(key, theme.POTION_LIQUID))
 
 
 # 効果の共通土台: 発動で満タンから数え直し（上書き）、update でカウントダウン。
@@ -107,6 +136,81 @@ class DurationBoostEffect(_TimedEffect):
         return ok
 
 
+# スーパーマグネット: 使った瞬間、盤面の全オーブ（ボーナス含む）を回収する。
+# 得点と成長は普通に食べた時と同じ。見た目は各オーブが頭へ吸い込まれる飛行エフェクト
+# （得点・成長は使用時に即確定し、飛行は演出のみ＝途中でゲームオーバーしても損しない）。
+class SuperMagnetEffect:
+    FLY_DURATION = 0.45   # 吸い込みエフェクトの飛行時間(秒)
+    active = False        # 持続効果ではない（残り時間バーは出さない）
+    max_timer = 0.0
+
+    def __init__(self, snake, food, score_counter, double_points_effect):
+        self.snake = snake
+        self.food = food
+        self.score_counter = score_counter
+        self.double = double_points_effect  # ポイント二倍効果との重ねがけに対応
+        self.flights = []  # 飛行中のオーブ演出 {x, y, t, gold}
+
+    def activate(self):
+        collected = self.food.collect_all()
+        for x, y, multiplier in collected:
+            self.score_counter.count_orb(self.double.point_multiplier * multiplier)
+            self.snake.increase_segments()
+            self.flights.append({"x": x, "y": y, "t": 0.0, "gold": multiplier > 1})
+        return True
+
+    def update(self, dt):
+        for p in self.flights:
+            p["t"] += dt
+        self.flights = [p for p in self.flights if p["t"] < self.FLY_DURATION]
+
+    def reset(self):
+        self.flights = []
+
+    # プレイ領域に描く演出（ItemBar.draw から呼ばれる）。
+    # 各オーブが現在の頭の位置へ向かって縮みながら飛ぶ
+    def draw_field(self, surface):
+        if not self.flights:
+            return
+        hx, hy = self.snake.head.x, self.snake.head.y
+        for p in self.flights:
+            t = p["t"] / self.FLY_DURATION
+            ease = t * t * (3 - 2 * t)  # smoothstep（吸い込まれる加速感）
+            x = p["x"] + (hx - p["x"]) * ease
+            y = p["y"] + (hy - p["y"]) * ease
+            r = max(2, int(6 * (1 - t)))
+            color = theme.GOLD if p["gold"] else theme.FOOD_COLOR
+            cx, cy = theme.to_screen(x, y)
+            pygame.draw.circle(surface, color, (cx, cy), r)
+
+
+# ボム: 使った瞬間、盤面の全レンガを破壊してスコアに変換する
+# （1個あたりの得点はシールドで壊した時と同じ。破片エフェクトは ObstacleManager 側）。
+# レンガが1個も無い時は不発＝在庫を消費しない。
+class BombEffect:
+    active = False        # 持続効果ではない（残り時間バーは出さない）
+    max_timer = 0.0
+
+    def __init__(self, obstacles, score_counter, double_points_effect):
+        self.obstacles = obstacles
+        self.score_counter = score_counter
+        self.double = double_points_effect
+
+    def activate(self):
+        count = self.obstacles.blast_all()
+        if count == 0:
+            return False  # 壊す物がない（CLASSICや終盤フェード後）→ 消費しない
+        for _ in range(count):
+            self.score_counter.count_brick(self.double.point_multiplier)
+        return True
+
+    def update(self, dt):
+        pass
+
+    def reset(self):
+        pass
+
+
 # プレイ画面下部のアイテムスロットHUD（4枠）。所持しているアイテムを
 # ITEM_ORDER の順にスロットへ並べ、数字キー(1..4)で消費する。
 # 効果の更新・リセット・残り時間バー描画もここでまとめて行う。
@@ -115,7 +219,8 @@ class ItemBar:
     SLOT_SIZE = 44
     SLOT_GAP = 10
 
-    def __init__(self, snake, users, settings, double_points_effect, duration_boost_effect):
+    def __init__(self, snake, users, settings, double_points_effect, duration_boost_effect,
+                 super_magnet_effect=None, bomb_effect=None):
         self.snake = snake
         self.users = users
         self.settings = settings
@@ -124,6 +229,10 @@ class ItemBar:
             "double_points": double_points_effect,
             "duration_boost": duration_boost_effect,
         }
+        if super_magnet_effect is not None:
+            self.effects["super_magnet"] = super_magnet_effect
+        if bomb_effect is not None:
+            self.effects["bomb"] = bomb_effect
 
     def update(self, dt):
         for effect in self.effects.values():
@@ -160,6 +269,11 @@ class ItemBar:
             self.users.use_item(key)
 
     def draw(self, surface):
+        # プレイ領域内の演出（スーパーマグネットの吸い込み等）を持つ効果はここで描く
+        for effect in self.effects.values():
+            draw_field = getattr(effect, "draw_field", None)
+            if draw_field is not None:
+                draw_field(surface)
         slots = self._slot_keys()
         total = self.SLOT_COUNT * self.SLOT_SIZE + (self.SLOT_COUNT - 1) * self.SLOT_GAP
         start_x = (theme.WIDTH - total) // 2

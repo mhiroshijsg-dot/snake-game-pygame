@@ -29,6 +29,15 @@ CHANGELOG = [
           "to tell apart when both are active."],
          "items"),
     ]),
+    # 現在バージョンより新しいエントリは表示されない（次のリリースで自動的に有効になる）
+    ("1.4", [
+        ("New Shop Items!",
+         ["Super Magnet: sucks in every orb on the board.",
+          "Bomb: blasts every brick into score!",
+          "Both unlock at best score 150 —",
+          "and come in packs of 3."],
+         "shop"),
+    ]),
 ]
 
 

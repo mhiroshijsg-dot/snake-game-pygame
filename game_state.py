@@ -6,7 +6,7 @@ from shop_screen import ShopScreen
 from register_screen import RegisterScreen
 from tutorial_screen import TutorialScreen
 from whatsnew import WhatsNewScreen
-from snake import MAX_SCORE
+from snake import MAX_SCORE, GRID, MAX_FILL_PX
 import theme
 
 
@@ -242,6 +242,10 @@ class GameState:
         if self.is_started and not self.is_over and not self.is_settings \
                 and not self.is_shop and not self.is_howto:
             self.items.use_slot(index)
+            # スーパーマグネットの大量成長で盤面を満たした場合もクリア扱いにする
+            # （通常はメインループのオーブ取得時に判定される）
+            if len(self.snake.segments) * GRID >= MAX_FILL_PX:
+                self.handle_clear()
 
     def handle_game_over(self):
         self.is_over = True
