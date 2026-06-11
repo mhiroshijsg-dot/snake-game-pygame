@@ -12,11 +12,10 @@ from users import UserManager
 import theme
 import crashlog
 
-# TODO: 一定のスコアを超えたらポイントを消費して最初からスコアと長さを持った状態から始められるようにする？
+# TODO: 毎回開発元が信用できないと言われてアプデのたびに承認する必要があるのが非常に面倒、どうにかならないものか
 # TODO: アイテム数を増やす（ショップのカタログに unlock_score 付きで1行足す方式）
 # TODO: マリオの赤コインのようなイベント
 # TODO: ボーナスイベントとして全面オーブのステージに転移する
-# TODO: 時間を測って耐久モード？
 
 # クリア演出の確認用。Trueにすると最大-1の長さで開始し、オーブ1個でクリアできる
 TEST_CLEAR = False
@@ -26,6 +25,10 @@ TEST_FIRST_RUN = False
 # ショップの開放演出の確認用。Trueにすると開放済みポーションが常に UNLOCK 表示になり、
 # 何度でも演出を確認できる（seen の記録もしないので実データに影響しない）
 TEST_SHOP_REVEAL = False
+# 新機能紹介(What's New)の確認用。"1.1" のようにバージョン文字列を入れると、
+# そのバージョンから更新した体で紹介スライドが出る（記録しないので何度でも確認できる）。
+# 普段は None
+TEST_WHATS_NEW = None
 
 crashlog.install()  # 予期しない例外を crash.log に記録してから落ちる（配布版の調査用）
 
@@ -70,7 +73,8 @@ obstacles.item_managers = [magnets, shields]
 score_counter = ScoreCounter(settings, users)
 state = GameState(snake, food, obstacles, magnets, shields, items,
                   score_counter, settings, users, test_mode=TEST_CLEAR,
-                  test_first_run=TEST_FIRST_RUN, test_shop_reveal=TEST_SHOP_REVEAL)
+                  test_first_run=TEST_FIRST_RUN, test_shop_reveal=TEST_SHOP_REVEAL,
+                  test_whats_new=TEST_WHATS_NEW)
 
 # 描画は一定のフレームレートで回し、スネークの前進は「経過時間」で進める。
 # こうするとフレームレートがブレても移動速度(px/秒)が一定になる（HARDでも安定）。

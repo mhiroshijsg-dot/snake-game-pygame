@@ -5,13 +5,16 @@ from how_to_screen import HowToScreen
 from shop_screen import ShopScreen
 from register_screen import RegisterScreen
 from tutorial_screen import TutorialScreen
+from whatsnew import WhatsNewScreen
 from snake import MAX_SCORE
+import theme
 
 
 class GameState:
     def __init__(self, snake, food, obstacles, magnets, shields, items,
                  score_counter, settings, users, test_mode=False,
-                 test_first_run=False, test_shop_reveal=False):
+                 test_first_run=False, test_shop_reveal=False,
+                 test_whats_new=None):
         self.snake = snake
         self.food = food
         self.obstacles = obstacles
@@ -31,6 +34,8 @@ class GameState:
         self.is_cleared = False     # 盤面クリア（理論上の最大に到達）
         self.is_register = False    # 初回起動のユーザー登録中
         self.is_tutorial = False    # 登録直後のチュートリアル表示中
+        self.is_whats_new = False   # アップデート後の新機能紹介の表示中
+        self._test_whats_new = test_whats_new  # テスト用: このバージョンから更新した体で表示
         self._run_difficulty = None  # 今プレイ中の回で使っている難易度
         self._howto_from_settings = False  # 遊び方を閉じた時の戻り先
         self._shop_from_over = False        # ショップを閉じた時の戻り先（True=ゲームオーバー）
@@ -52,9 +57,12 @@ class GameState:
         self.shop_screen = ShopScreen(self.close_shop, users, test_reveal=test_shop_reveal)
         self.register_screen = RegisterScreen(users, self.finish_register)
         self.tutorial_screen = TutorialScreen(self.finish_tutorial)
-        # 初回起動（ユーザーが1人もいない）またはテストフラグなら、
-        # タイトルの前に 登録 → チュートリアル のフローを挟む。
-        # 旧バージョンから更新した人（ユーザーはいるが未閲覧）にはチュートリアルだけ見せる
+        self.whats_new_screen = WhatsNewScreen(self.finish_whats_new)
+        # 起動時の入り口を決める:
+        #  1) 初回起動（ユーザーなし）またはテストフラグ → 登録 → チュートリアル
+        #  2) v1.1以前からの更新（チュートリアル未閲覧） → チュートリアルのみ
+        #  3) 旧バージョンからの更新 → その間に追加された新機能の紹介(What's New)
+        #  4) それ以外 → タイトル直行
         if test_first_run or not users.names():
             self.is_register = True
             self.register_screen.show()
@@ -62,7 +70,19 @@ class GameState:
             self.is_tutorial = True
             self.tutorial_screen.show()
         else:
-            self.start_screen.show()
+            # last_seen_version が無いのは「この仕組み導入前(=v1.3以前)のデータ」。
+            # v1.2/v1.3 のチュートリアルは当時の新機能を含んでいたので "1.3" 扱いにする
+            since = test_whats_new or users.last_seen_version or "1.3"
+            self.is_whats_new = True
+            self.whats_new_screen.show(since)  # 表示ページが無ければ即 finish される
+
+    # 新機能紹介を見終わった（SKIP含む）: 現在バージョンを記録してタイトルへ
+    def finish_whats_new(self):
+        if self._test_whats_new is None:  # テスト表示中は記録しない（何度でも確認できる）
+            self.users.mark_version_seen(theme.APP_VERSION)
+        self.whats_new_screen.hide()
+        self.is_whats_new = False
+        self.start_screen.show()
 
     # 登録完了: チュートリアルへ進む
     def finish_register(self):
@@ -71,16 +91,19 @@ class GameState:
         self.is_tutorial = True
         self.tutorial_screen.show()
 
-    # チュートリアル完了（SKIP含む）: 見た記録を保存してタイトル画面へ
+    # チュートリアル完了（SKIP含む）: 見た記録を保存してタイトル画面へ。
+    # チュートリアルは最新機能込みなので、新機能紹介も「現在バージョンまで見た」扱いにする
     def finish_tutorial(self):
         self.users.mark_tutorial_done()
+        self.users.mark_version_seen(theme.APP_VERSION)
         self.tutorial_screen.hide()
         self.is_tutorial = False
         self.start_screen.show()
 
     def start(self):
-        # スタート画面にいる時だけ開始（プレイ中・設定中・登録/チュートリアル中は無視）
-        if self.is_started or self.is_settings or self.is_register or self.is_tutorial:
+        # スタート画面にいる時だけ開始（プレイ中・設定中・登録/チュートリアル等は無視）
+        if self.is_started or self.is_settings or self.is_register \
+                or self.is_tutorial or self.is_whats_new:
             return
         self.start_screen.hide()
         self.is_cleared = False
@@ -100,7 +123,8 @@ class GameState:
 
     # 's'キー: スタート画面ならSTART。ゲームオーバーでボタンがSTART表示(難易度変更後)なら再開。
     def press_start_key(self):
-        if self.is_settings or self.is_howto or self.is_register or self.is_tutorial:
+        if self.is_settings or self.is_howto or self.is_register \
+                or self.is_tutorial or self.is_whats_new:
             return
         if self.is_over:
             if self._difficulty_changed():
@@ -282,6 +306,8 @@ class GameState:
             return self.register_screen
         if self.is_tutorial:
             return self.tutorial_screen
+        if self.is_whats_new:
+            return self.whats_new_screen
         if self.is_howto:
             return self.how_to_screen
         if self.is_shop:

@@ -48,6 +48,10 @@ class UserManager:
         # チュートリアルを見たか（ファイル全体で1つ。新規インストールは登録後に、
         # 旧バージョンからの更新者は初回起動時に1度だけチュートリアルが出る）
         self.tutorial_done = False
+        # 最後に「新機能紹介(What's New)」まで見たバージョン（例 "1.3"）。
+        # 現在バージョンより古ければ、起動時にその間の新機能スライドが表示される。
+        # None は「この仕組みの導入(v1.4)前のデータ」を意味する
+        self.last_seen_version = None
         self._load()
         # ユーザーが1人もいない（=初回起動）場合はここでは作らない。
         # GameState が登録画面（RegisterScreen）を出して最初のユーザーを作らせる。
@@ -99,6 +103,8 @@ class UserManager:
                 self.current = next(iter(self.users), None)
             # v1.1以前のファイルにはこのキーが無い → False（=初回起動時に1度見せる）
             self.tutorial_done = bool(data.get("tutorial_done", False))
+            v = data.get("last_seen_version")
+            self.last_seen_version = str(v) if v is not None else None
         except FileNotFoundError:
             self.users = {}
             self.current = None
@@ -202,6 +208,12 @@ class UserManager:
             self.tutorial_done = True
             self.save()
 
+    # 新機能紹介(What's New)をこのバージョンまで見た。以後、同バージョンでは出さない
+    def mark_version_seen(self, version):
+        if self.last_seen_version != version:
+            self.last_seen_version = version
+            self.save()
+
     # --- ショップで「開放」演出を見たポーションの記録（ユーザー単位）---
     def has_seen_item(self, key):
         return key in self.users.get(self.current, {}).get("seen_items", [])
@@ -229,6 +241,7 @@ class UserManager:
         try:
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump({"current": self.current, "tutorial_done": self.tutorial_done,
+                           "last_seen_version": self.last_seen_version,
                            "users": self.users},
                           f, ensure_ascii=False, indent=2)
             os.replace(tmp, USERS_FILE)
