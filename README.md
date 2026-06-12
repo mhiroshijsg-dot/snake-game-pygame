@@ -8,7 +8,10 @@ A Snake game remake built with pygame, expanded with obstacles, items, and a sho
 
 Grab the zip for your OS from [Releases](../../releases).
 
-- **macOS** — Unzip and drag to Applications. On first launch, right-click → Open if Gatekeeper warns you.
+- **macOS** — Unzip and drag to Applications. The app is not notarized, so macOS will warn you on first launch of each version:
+  - **macOS 15 Sequoia and later**: open System Settings → Privacy & Security, scroll down and click **Open Anyway**.
+  - **macOS 14 and earlier**: right-click the app → **Open**.
+  - Or skip the dialog entirely by running `xattr -cr /Applications/SnakeGame.app` once in Terminal.
 - **Windows** — Unzip and run `SnakeGame.exe`. If SmartScreen warns you, click *More info → Run anyway*.
 
 Save data is stored in `~/Library/Application Support/SnakeGame/` (macOS) or `%APPDATA%\SnakeGame\` (Windows).
