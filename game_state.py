@@ -364,6 +364,15 @@ class GameState:
         if screen:
             screen.handle_motion(x, y)
 
+    # マウスボタンを離した時（ドラッグ&ドロップ対応の画面だけが使う）。
+    # handle_release を持たない画面は無視する。
+    def handle_release(self, x, y):
+        screen = self._active_screen()
+        if screen is not None:
+            release = getattr(screen, "handle_release", None)
+            if release is not None:
+                release(x, y)
+
     # 現在アクティブな画面(タイトル・ボタン)を描く
     def draw(self, surface):
         screen = self._active_screen()

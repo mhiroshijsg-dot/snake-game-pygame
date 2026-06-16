@@ -70,6 +70,14 @@ CHANGELOG = [
           "Empty slots stay put even if you run out."],
          "loadout"),
     ]),
+    # 現在バージョンより新しいエントリは表示されない（次のリリースで自動的に有効になる）
+    ("2.2", [
+        ("Drag & Drop Slots",
+         ["Now just drag an equipped slot onto",
+          "another to swap them — quick and easy",
+          "loadout rearranging."],
+         "loadout"),
+    ]),
 ]
 
 

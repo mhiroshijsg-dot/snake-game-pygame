@@ -45,14 +45,21 @@ class LoadoutScreen:
         self.equip_slots = []   # 上段: 装備中の4枠 [(key, x, y, size)]（key は None もあり）
         self.item_slots = []    # 下段: 持ち物グリッド [(key, x, y, size)]（空きは key=None）
         self.hover_key = None   # ホバー中のアイテム key（名前ツールチップ用）
-        self.selected = None    # 入れ替えのために選択中の装備スロット index（None=未選択）
+        self.drag_from = None   # ドラッグ中の装備スロット index（None=ドラッグしていない）
+        self.drag_key = None    # ドラッグ中のアイテム key（カーソル追従アイコン用）
+        self.drag_pos = None    # ドラッグ中のカーソル位置（世界座標）
 
     def show(self):
         self.visible = True
         self.warning = ""
         self.hover_key = None
-        self.selected = None
+        self._cancel_drag()
         self._build()
+
+    def _cancel_drag(self):
+        self.drag_from = None
+        self.drag_key = None
+        self.drag_pos = None
 
     def hide(self):
         self.visible = False
@@ -150,18 +157,6 @@ class LoadoutScreen:
         p[i], p[j] = p[j], p[i]
         self.users.set_loadout([k for k in p if k])
 
-    # 装備スロットをクリック: 1つ目は選択、2つ目で入れ替え
-    def _click_equip_slot(self, i):
-        padded = self._padded()
-        if self.selected is None:
-            if padded[i] is not None:   # 空きスロットは選択できない
-                self.selected = i
-        else:
-            if self.selected != i:
-                self._swap_slots(self.selected, i)
-            self.selected = None
-        self._build()
-
     # --- 描画 ---
     def draw(self, surface):
         if not self.visible:
@@ -215,32 +210,42 @@ class LoadoutScreen:
             ey = hy + fy * r * 0.45 + py * side * r * 0.40
             pygame.draw.circle(surface, theme.TEXT, (int(ex), int(ey)), max(1, int(r * 0.18)))
 
-    # 1スロットを描く。equipped=金枠, selected=青の太枠で「選択中」を示す
-    def _draw_slot_box(self, surface, key, x, y, size, equipped=False, selected=False):
+    # 1スロットを描く。equipped=金枠, highlight=青の太枠（ドラッグ元/落下先）。
+    # hide_icon=True ならアイコンを描かない（ドラッグ中の元スロットを空に見せる）。
+    def _draw_slot_box(self, surface, key, x, y, size, equipped=False, highlight=False,
+                       hide_icon=False):
         cx, cy = theme.to_screen(x, y)
         rect = pygame.Rect(0, 0, size, size)
         rect.center = (int(cx), int(cy))
         box = pygame.Surface((size, size), pygame.SRCALPHA)
         box.fill((*theme.GOLD[:3], 46) if equipped else (255, 255, 255, 28))
         surface.blit(box, rect.topleft)
-        if selected:
+        if highlight:
             pygame.draw.rect(surface, theme.PRIMARY, rect, width=4, border_radius=8)
         else:
             border = theme.GOLD if equipped else theme.SECONDARY
             pygame.draw.rect(surface, border, rect, width=3 if equipped else 2, border_radius=8)
-        if key is not None:
+        if key is not None and not hide_icon:
             count = self.users.item_count(key)
             draw_item_icon(surface, key, rect.centerx, rect.centery + 1, scale=1.0)
-            col = theme.HUD_TEXT if count > 0 else theme.TEXT_DIM
+            # 個数バッジ（右下）。読みやすいよう濃色で描く
+            col = theme.TEXT if count > 0 else theme.TEXT_DIM
             theme.draw_text_screen(surface, f"x{count}", rect.right - 12, rect.bottom - 10,
                                    col, theme.FONT_SCORE)
         return rect
 
     def _draw_gear(self, surface):
+        # ドラッグ中なら、落下先になる装備スロットを求めてハイライトする
+        drop_target = None
+        if self.drag_from is not None and self.drag_pos is not None:
+            drop_target = self._hit_index(self.equip_slots, *self.drag_pos)
+
         theme.draw_text(surface, "EQUIPPED", -200, 30, HEADER_COLOR, theme.FONT_NAME_SMALL)
         for i, (key, x, y, size) in enumerate(self.equip_slots):
+            highlight = i == drop_target or i == self.drag_from
             rect = self._draw_slot_box(surface, key, x, y, size,
-                                       equipped=key is not None, selected=self.selected == i)
+                                       equipped=key is not None, highlight=highlight,
+                                       hide_icon=(i == self.drag_from))
             theme.draw_text_screen(surface, str(i + 1), rect.left + 7, rect.top + 7,
                                    theme.TEXT_DIM, theme.FONT_SCORE)
 
@@ -250,17 +255,22 @@ class LoadoutScreen:
             self._draw_slot_box(surface, key, x, y, size, equipped=key in equipped if key else False)
 
         # 下部の案内 / ツールチップ
-        if self.selected is not None:
-            tip = "Tap another slot to swap  (tap again to cancel)"
-            theme.draw_text(surface, tip, 0, -198, theme.PRIMARY, theme.FONT_SCORE)
+        if self.drag_from is not None:
+            theme.draw_text(surface, "Drop onto a slot to rearrange", 0, -198,
+                            theme.PRIMARY, theme.FONT_SCORE)
         elif self.hover_key:
             name = self._item_name(self.hover_key)
             action = "unequip" if self.hover_key in equipped else "equip"
             theme.draw_text(surface, f"{name}  —  tap to {action}", 0, -198,
                             theme.TEXT, theme.FONT_SCORE)
         else:
-            theme.draw_text(surface, "Tap items to equip · tap a slot to rearrange",
+            theme.draw_text(surface, "Tap items to equip · drag a slot to rearrange",
                             0, -198, theme.TEXT_DIM, theme.FONT_SCORE)
+
+        # ドラッグ中のアイコンをカーソルに追従させて描く（最前面）
+        if self.drag_key is not None and self.drag_pos is not None:
+            cx, cy = theme.to_screen(*self.drag_pos)
+            draw_item_icon(surface, self.drag_key, int(cx), int(cy), scale=1.1)
 
     def _item_name(self, key):
         for it in SHOP_ITEMS:
@@ -282,6 +292,7 @@ class LoadoutScreen:
                 return idx
         return None
 
+    # マウス押下: ボタン → 装備スロット（ドラッグ開始）→ 持ち物（装備トグル）の順で判定
     def handle_click(self, x, y):
         for button in self.buttons:
             if button.contains(x, y):
@@ -289,17 +300,30 @@ class LoadoutScreen:
                 return
         i = self._hit_index(self.equip_slots, x, y)
         if i is not None:
-            self._click_equip_slot(i)
+            padded = self._padded()
+            if padded[i] is not None:  # 中身のあるスロットだけ掴める
+                self.drag_from = i
+                self.drag_key = padded[i]
+                self.drag_pos = (x, y)
             return
         key = self._hit(self.item_slots, x, y)
         if key is not None:
-            self.selected = None
             self._toggle_equip(key)
             self._build()
-            return
-        self.selected = None  # 余白クリックで選択解除
 
     def handle_motion(self, x, y):
         for button in self.buttons:
             button.set_hover(button.contains(x, y))
+        if self.drag_from is not None:
+            self.drag_pos = (x, y)   # ドラッグ中はカーソル位置を更新
         self.hover_key = self._hit(self.equip_slots, x, y) or self._hit(self.item_slots, x, y)
+
+    # マウスを離した: 別の装備スロットの上なら入れ替え（ドラッグ&ドロップ）
+    def handle_release(self, x, y):
+        if self.drag_from is None:
+            return
+        j = self._hit_index(self.equip_slots, x, y)
+        if j is not None and j != self.drag_from:
+            self._swap_slots(self.drag_from, j)
+        self._cancel_drag()
+        self._build()

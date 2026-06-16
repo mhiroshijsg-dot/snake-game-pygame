@@ -132,11 +132,13 @@ while state.is_on:
                 else:
                     window = pygame.display.set_mode(WINDOWED_SIZE, pygame.RESIZABLE)
         # マウスはウィンドウ座標で来るので、レターボックス余白を引いて倍率で割り戻す
-        elif event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION):
+        elif event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
             s, ox, oy = theme.fit_scale(*window.get_size())
             wx, wy = theme.to_world((event.pos[0] - ox) / s, (event.pos[1] - oy) / s)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 state.handle_click(wx, wy)
+            elif event.type == pygame.MOUSEBUTTONUP:
+                state.handle_release(wx, wy)
             else:
                 state.handle_motion(wx, wy)
 
