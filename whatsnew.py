@@ -78,6 +78,20 @@ CHANGELOG = [
           "loadout rearranging."],
          "loadout"),
     ]),
+    # 現在バージョンより新しいエントリは表示されない（次のリリースで自動的に有効になる）
+    ("2.4", [
+        ("Loadout from Game Over",
+         ["Jump straight to the LOADOUT screen from",
+          "the Game Over screen to tweak your gear",
+          "before your next run."],
+         "loadout"),
+        ("Classic Mode Items",
+         ["In CLASSIC mode, items that need bricks or",
+          "field pickups (Bomb, Triple Duration) simply",
+          "do nothing and aren't used up. Super Magnet,",
+          "Double Points and Pocket Watch still work."],
+         None),
+    ]),
 ]
 
 

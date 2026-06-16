@@ -149,6 +149,11 @@ class DurationBoostEffect(_TimedEffect):
         return self.MULTIPLIER if self.active else 1
 
     def activate(self):
+        # 伸ばす対象（magnet/shield）が出ない難易度（CLASSIC等）では不発＝消費しない。
+        # この効果は盤面アイテムの持続を伸ばすだけなので、それらが無いと意味がない。
+        d = self.settings.difficulty
+        if not (d.has_magnet or d.has_shield):
+            return False
         ok = super().activate()
         # 既に発動中の magnet/shield があれば、その残り時間も3倍に伸ばす
         for manager in self.targets:

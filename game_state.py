@@ -41,6 +41,7 @@ class GameState:
         self._run_difficulty = None  # 今プレイ中の回で使っている難易度
         self._howto_from_settings = False  # 遊び方を閉じた時の戻り先
         self._shop_from_over = False        # ショップを閉じた時の戻り先（True=ゲームオーバー）
+        self._loadout_from_over = False     # ロードアウトを閉じた時の戻り先（True=ゲームオーバー）
 
         # スタート画面の間はスネーク・food・障害物・アイテムを隠しておく
         self.snake.hide()
@@ -55,7 +56,7 @@ class GameState:
         self.settings_screen = SettingsScreen(self.settings, self.close_settings,
                                               self.open_howto, users)
         self.game_over_screen = GameOverScreen(self.retry, self.back_to_title, self.open_settings,
-                                               self.open_shop, users)
+                                               self.open_shop, users, self.open_loadout)
         self.how_to_screen = HowToScreen(self.close_howto, users)
         self.shop_screen = ShopScreen(self.close_shop, users, test_reveal=test_shop_reveal)
         self.loadout_screen = LoadoutScreen(self.close_loadout, users)
@@ -241,16 +242,40 @@ class GameState:
         else:
             self.start_screen.show()
 
-    # ロードアウト/ステータス画面の開閉（タイトル画面からのみ開く）
+    # ロードアウト/ステータス画面の開閉（タイトル画面・ゲームオーバー画面のどちらからでも）
     def open_loadout(self):
-        self.start_screen.hide()
+        self._loadout_from_over = self.is_over
+        if self.is_over:
+            # ゲームオーバーの表示を一旦隠す（設定・ショップと同じ退避）
+            self.game_over_screen.hide()
+            self.score_counter.clear()
+            self.snake.hide()
+            self.food.hide()
+            self.obstacles.hide()
+            self.magnets.hide()
+            self.shields.hide()
+        else:
+            self.start_screen.hide()
         self.loadout_screen.show()
         self.is_loadout = True
 
     def close_loadout(self):
         self.loadout_screen.hide()
         self.is_loadout = False
-        self.start_screen.show()
+        if self._loadout_from_over:
+            if self.is_cleared:
+                self.score_counter.show_clear()
+                self.game_over_screen.show(self._difficulty_changed())
+            else:
+                self.snake.show()
+                self.food.show()
+                self.obstacles.show()
+                self.magnets.show()
+                self.shields.show()
+                self.score_counter.show_game_over()
+                self.game_over_screen.show(self._difficulty_changed())
+        else:
+            self.start_screen.show()
 
     # 数字キーでプレイ中にアイテムスロットを使う（プレイ中のみ反応）
     def use_item(self, index):

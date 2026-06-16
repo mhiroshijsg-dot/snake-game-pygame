@@ -110,10 +110,10 @@ class ScoreCounter:
     def _draw_game_over(self, surface):
         player = self.users.current
         mode = self.settings.difficulty_key
-        theme.draw_text(surface, "Game Over", 0, 82, theme.TEXT, theme.FONT_BIG)
-        theme.draw_text(surface, f"{player}  ·  {mode}", 0, 44, theme.TEXT_DIM, theme.FONT_NAME_SMALL)
+        theme.draw_text(surface, "Game Over", 0, 118, theme.TEXT, theme.FONT_BIG)
+        theme.draw_text(surface, f"{player}  ·  {mode}", 0, 82, theme.TEXT_DIM, theme.FONT_NAME_SMALL)
         theme.draw_text(surface, f"Score  {self.score}     Best  {self.high_score}",
-                        0, 16, theme.TEXT_DIM, theme.FONT_SCORE)
+                        0, 54, theme.TEXT_DIM, theme.FONT_SCORE)
         if self.new_record:
             self._draw_new_record(surface)
 
@@ -171,5 +171,5 @@ class ScoreCounter:
         scale = 1.0 + 0.12 * pulse
         w, h = label.get_size()
         label = pygame.transform.smoothscale(label, (int(w * scale), int(h * scale)))
-        rect = label.get_rect(center=theme.to_screen(0, -18))
+        rect = label.get_rect(center=theme.to_screen(0, 30))
         surface.blit(label, rect)
