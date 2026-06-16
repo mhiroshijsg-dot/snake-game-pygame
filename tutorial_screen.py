@@ -58,6 +58,12 @@ class SlideDeck:
           "Spend your points on potions in the SHOP —",
           "new potions unlock as your best score grows!"],
          "settings"),
+        ("Loadout & Upgrades",
+         ["The LOADOUT screen shows your snake and gear.",
+          "Pick which items fill your 4 bottom slots,",
+          "and buy permanent upgrades like Point Boost",
+          "to earn more points — for good."],
+         "loadout"),
         ("One more thing...",
          ["Fill the entire board with your snake",
           "and... something special might happen.",
@@ -124,6 +130,26 @@ class SlideDeck:
             self._place(surface, "shield", 35, ART_Y)
             self._place(surface, "brick", 90, ART_Y)
             theme.draw_text(surface, "+more!", 65, ART_Y - 35, theme.GOLD, theme.FONT_BUTTON)
+        elif key == "loadout":
+            # 4つの装備スロット（うち1つは金枠＝装備中）＋金色の「+1」恒常強化バッジ
+            size, gap = 38, 10
+            total = 4 * size + 3 * gap
+            for i in range(4):
+                x = -total / 2 + size / 2 + i * (size + gap)
+                cx, cy = theme.to_screen(x, ART_Y)
+                rect = pygame.Rect(0, 0, size, size)
+                rect.center = (cx, cy)
+                equipped = i < 2  # 先頭2つを装備中として金枠で見せる
+                box = pygame.Surface((size, size), pygame.SRCALPHA)
+                box.fill((*theme.GOLD[:3], 46) if equipped else (255, 255, 255, 28))
+                surface.blit(box, rect.topleft)
+                pygame.draw.rect(surface, theme.GOLD if equipped else theme.SECONDARY,
+                                 rect, width=3 if equipped else 2, border_radius=7)
+            # 「+1」恒常強化バッジ
+            bx, by = theme.to_screen(total / 2 + 28, ART_Y)
+            pygame.draw.circle(surface, theme.GOLD, (bx, by), 16)
+            pygame.draw.circle(surface, theme.TEXT, (bx, by), 16, 2)
+            theme.draw_text(surface, "+1", total / 2 + 28, ART_Y, theme.TEXT, theme.FONT_BUTTON)
         elif key == "secret":
             # 盤面が蛇色で埋まったミニボード＋金の「?」で匂わせる
             cx, cy = theme.to_screen(0, ART_Y)

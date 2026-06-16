@@ -5,12 +5,13 @@ import theme
 
 
 class StartScreen:
-    def __init__(self, on_start, on_quit, on_settings, on_howto, on_shop, users):
+    def __init__(self, on_start, on_quit, on_settings, on_howto, on_shop, users, on_loadout):
         self.on_start = on_start
         self.on_quit = on_quit
         self.on_settings = on_settings
         self.on_howto = on_howto
         self.on_shop = on_shop
+        self.on_loadout = on_loadout
         self.users = users  # 現在のプレイヤー名・ウォレットを表示するため
         self.visible = False
         self.buttons = []
@@ -22,11 +23,13 @@ class StartScreen:
         self.buttons = [
             Button("START", 0, 20, self.on_start,
                    color=theme.PRIMARY, hover_color=theme.PRIMARY_HOVER),
-            Button("SHOP", 0, -56, self.on_shop,
+            Button("SHOP", 0, -52, self.on_shop,
                    color=theme.GOLD if shop_new else theme.SECONDARY,
                    hover_color=theme.GOLD if shop_new else theme.SECONDARY_HOVER,
                    text_color=theme.TEXT if shop_new else theme.BUTTON_TEXT),
-            Button("QUIT", 0, -132, self.on_quit,
+            Button("LOADOUT", 0, -124, self.on_loadout,
+                   color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),
+            Button("QUIT", 0, -196, self.on_quit,
                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),
             # 右上の設定アイコン（歯車を図形で描く小さな丸ボタン）
             Button("", 250, 250, self.on_settings, width=46, height=46,
@@ -56,7 +59,7 @@ class StartScreen:
                         theme.TEXT_DIM, theme.FONT_SCORE)
         # 未開放の新ポーションがあれば SHOP ボタン横で「NEW POTION!」を点滅させる
         if new_potions(self.users) and (pygame.time.get_ticks() // 400) % 2 == 0:
-            theme.draw_text(surface, "NEW POTION!", 195, -56, theme.GOLD, theme.FONT_BUTTON)
+            theme.draw_text(surface, "NEW POTION!", 195, -52, theme.GOLD, theme.FONT_BUTTON)
         for button in self.buttons:
             button.draw(surface)
 

@@ -35,13 +35,19 @@ class ScoreCounter:
     def high_score(self):
         return self.users.high_score(self.settings.difficulty_key)
 
-    # オーブを1個食べた時の加点（難易度別 orb_points × 効果倍率）
-    def count_orb(self, multiplier=1):
-        self.score += self.settings.difficulty.orb_points * multiplier
+    # 恒常強化「Point Boost」による加点ボーナス（購入レベル＝+何点か）。
+    # 各加点イベントごとに基本点へ加算され、その合計に効果倍率が掛かる。
+    @property
+    def point_bonus(self):
+        return self.users.upgrade_level("point_bonus")
 
-    # ブロックを1個破壊した時の加点（難易度別 brick_points × 効果倍率）
+    # オーブを1個食べた時の加点（(難易度別 orb_points + 恒常ボーナス) × 効果倍率）
+    def count_orb(self, multiplier=1):
+        self.score += (self.settings.difficulty.orb_points + self.point_bonus) * multiplier
+
+    # ブロックを1個破壊した時の加点（(難易度別 brick_points + 恒常ボーナス) × 効果倍率）
     def count_brick(self, multiplier=1):
-        self.score += self.settings.difficulty.brick_points * multiplier
+        self.score += (self.settings.difficulty.brick_points + self.point_bonus) * multiplier
 
     # ゲームオーバー/クリア時に呼ぶ。ベスト更新を判定して保存し、
     # この回の獲得点をウォレット（累計ポイント）へ積み立てる。

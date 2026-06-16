@@ -3,6 +3,7 @@ from settings_screen import SettingsScreen
 from game_over_screen import GameOverScreen
 from how_to_screen import HowToScreen
 from shop_screen import ShopScreen
+from loadout_screen import LoadoutScreen
 from register_screen import RegisterScreen
 from tutorial_screen import TutorialScreen
 from whatsnew import WhatsNewScreen
@@ -31,6 +32,7 @@ class GameState:
         self.is_settings = False
         self.is_howto = False
         self.is_shop = False
+        self.is_loadout = False     # ロードアウト/ステータス画面の表示中
         self.is_cleared = False     # 盤面クリア（理論上の最大に到達）
         self.is_register = False    # 初回起動のユーザー登録中
         self.is_tutorial = False    # 登録直後のチュートリアル表示中
@@ -48,13 +50,15 @@ class GameState:
         self.shields.hide()
 
         self.start_screen = StartScreen(self.start, self.quit, self.open_settings,
-                                        self.open_howto, self.open_shop, users)
+                                        self.open_howto, self.open_shop, users,
+                                        self.open_loadout)
         self.settings_screen = SettingsScreen(self.settings, self.close_settings,
                                               self.open_howto, users)
         self.game_over_screen = GameOverScreen(self.retry, self.back_to_title, self.open_settings,
                                                self.open_shop, users)
         self.how_to_screen = HowToScreen(self.close_howto, users)
         self.shop_screen = ShopScreen(self.close_shop, users, test_reveal=test_shop_reveal)
+        self.loadout_screen = LoadoutScreen(self.close_loadout, users)
         self.register_screen = RegisterScreen(users, self.finish_register)
         self.tutorial_screen = TutorialScreen(self.finish_tutorial)
         self.whats_new_screen = WhatsNewScreen(self.finish_whats_new)
@@ -237,6 +241,17 @@ class GameState:
         else:
             self.start_screen.show()
 
+    # ロードアウト/ステータス画面の開閉（タイトル画面からのみ開く）
+    def open_loadout(self):
+        self.start_screen.hide()
+        self.loadout_screen.show()
+        self.is_loadout = True
+
+    def close_loadout(self):
+        self.loadout_screen.hide()
+        self.is_loadout = False
+        self.start_screen.show()
+
     # 数字キーでプレイ中にアイテムスロットを使う（プレイ中のみ反応）
     def use_item(self, index):
         if self.is_started and not self.is_over and not self.is_settings \
@@ -316,6 +331,8 @@ class GameState:
             return self.how_to_screen
         if self.is_shop:
             return self.shop_screen
+        if self.is_loadout:
+            return self.loadout_screen
         if self.is_settings:
             return self.settings_screen
         if not self.is_started:

@@ -5,7 +5,7 @@ from obstacle import ObstacleManager
 from magnet import MagnetManager
 from shield import ShieldManager
 from items import (DoublePointsEffect, DurationBoostEffect, SuperMagnetEffect,
-                   BombEffect, ItemBar)
+                   BombEffect, TimeWarpEffect, ItemBar)
 from score import ScoreCounter
 from game_state import GameState
 from settings import Settings
@@ -71,8 +71,9 @@ duration_effect.targets = [magnets, shields]
 score_counter = ScoreCounter(settings, users)
 super_magnet_effect = SuperMagnetEffect(snake, food, score_counter, double_effect)  # 全オーブ回収
 bomb_effect = BombEffect(obstacles, score_counter, double_effect)                   # 全レンガ破壊→得点化
+time_warp_effect = TimeWarpEffect(snake, settings)                                  # 時間の流れを遅くする
 items = ItemBar(snake, users, settings, double_effect, duration_effect,
-                super_magnet_effect, bomb_effect)  # 下部アイテムスロットHUD
+                super_magnet_effect, bomb_effect, time_warp_effect)  # 下部アイテムスロットHUD
 # オーブ・レンガ・magnet・shield が互いに同じセルへ湧かないよう、相互参照を張る
 magnets.peers = [shields]
 shields.peers = [magnets]
@@ -149,16 +150,20 @@ while state.is_on:
     # ゲーム進行: 経過時間を貯めて、STEP px進むのに必要な間隔ごとに1歩動かす。
     # 速いほど1フレームに複数回動く（HARDでも見た目の速度が安定する）。
     if playing:
-        # 障害物の寿命・湧き直し・終盤の数調整（実時間ベース）
-        obstacles.update(dt, score_counter.score, food)
+        # タイムワープ（懐中時計）発動中は時間の流れ自体を遅くする。dt に倍率を掛けて
+        # 以降の全更新へ渡すことで、蛇の速度・各効果の残り時間・盤面アイテムの出現/寿命/
+        # 再生成・ボーナスオーブの寿命まで、時間に関わるあらゆる要素が一括で遅くなる。
+        game_dt = dt * items.time_scale
+        # 障害物の寿命・湧き直し・終盤の数調整
+        obstacles.update(game_dt, food)
         # ボーナスオーブの出現・寿命
-        food.update(dt)
+        food.update(game_dt)
         # マグネット・シールドの出現・寿命・取得・効果
-        magnets.update(dt)
-        shields.update(dt)
-        items.update(dt)  # アイテム効果（ポイント二倍/効果時間3倍）の残り時間を進める
+        magnets.update(game_dt)
+        shields.update(game_dt)
+        items.update(game_dt)  # アイテム効果の残り時間を進める（ワープ自身の残り時間も含む）
 
-        move_accumulator += dt
+        move_accumulator += game_dt
         move_interval = STEP / settings.speed  # STEP px進むのにかかる秒数
         guard = 0  # ラグでdtが跳ねても暴走しないよう保険
         while move_accumulator >= move_interval and guard < 500:

@@ -2,7 +2,7 @@ import math
 import random
 import pygame
 import theme
-from snake import GRID, OFFSET, SIZE, DIRECTIONS, MAX_SCORE, TAIL_HIT_SQ
+from snake import GRID, OFFSET, SIZE, DIRECTIONS, MAX_LENGTH, TAIL_HIT_SQ
 
 DEBRIS_COUNT = 8           # 破壊時に飛び散る破片の数
 DEBRIS_TTL = 0.5           # 破片の寿命(秒)
@@ -19,9 +19,12 @@ LIFETIME_MIN = 8.0          # ブロックの寿命の下限(秒)
 LIFETIME_MAX = 14.0          # 寿命の上限(秒)
 MAX_TRIES = 60              # 配置先を探す試行回数
 
-# 終盤(理論最大スコアに対する割合)で障害物を減らし、最後はゼロにする
-FADE_START_FRAC = 0.5       # ここから減り始め
-FADE_END_FRAC = 0.85        # ここで完全に消える（最後は詰まないよう障害物なし）
+# 障害物は「蛇の胴体がプレイ領域をどれだけ埋めているか(占有率)」で減らす。
+# レンガはもともと、胴体が伸びて盤面が詰まり避け場が無くなるのを防ぐための救済ではなく、
+# 逆に「盤面が空いているうちは難所を作る」ための仕掛け。胴体が増えてプレイ領域が
+# 埋まってくると、それ自体が障害物として機能し避け場が無くなるので、レンガを減らしていく。
+# スコアではなく占有率に連動させることで、点数の稼ぎ方（ボーナス等）に左右されない。
+FADE_END_FILL = 0.33        # 胴体がプレイ領域のこの割合を占めたらレンガ生成は完全にゼロ
 
 
 # 20x20px のレンガ1個。触れると game over。寿命(ttl)を持ち、切れたら作り直される。
@@ -120,16 +123,23 @@ class ObstacleManager:
             if b:
                 self.blocks.append(b)
 
-    # 終盤で減らすための目標数（スコアが理論最大に近づくほど減り、最後は0）
-    def _target_count(self, score):
+    # 胴体の占有率(0..1)。クリア判定と同じ尺度（全長/埋め尽くし全長＝セグメント数/最大数）。
+    def _fill_fraction(self):
+        return len(self.snake.segments) / MAX_LENGTH
+
+    # 目標数：占有率が上がるほど線形に減り、FADE_END_FILL(33%)で0になる。
+    def _target_count(self):
         base = self.settings.difficulty.obstacle_count
-        frac = score / MAX_SCORE
-        if frac <= FADE_START_FRAC:
-            return base
-        if frac >= FADE_END_FRAC:
+        frac = self._fill_fraction()
+        if frac >= FADE_END_FILL:
             return 0
-        t = (FADE_END_FRAC - frac) / (FADE_END_FRAC - FADE_START_FRAC)
+        t = (FADE_END_FILL - frac) / FADE_END_FILL
         return round(base * t)
+
+    # レンガがまだ生成される段階か（占有率が33%未満）。shield が新規出現を止める判断に使う。
+    @property
+    def generating(self):
+        return self._target_count() > 0
 
     # 頭に重なるブロックをシールドで破壊する（破片エフェクト付き）。壊したら True
     def break_block_at(self, head):
@@ -162,8 +172,8 @@ class ObstacleManager:
             })
 
     # 毎フレーム: 寿命を減らし、切れたものは消し、目標数に合わせて作り直す
-    def update(self, dt, score, food):
-        target = self._target_count(score)
+    def update(self, dt, food):
+        target = self._target_count()
         for block in self.blocks:
             block.ttl -= dt
         # 寿命切れを除去（あとで目標数まで新しい場所に作り直される）

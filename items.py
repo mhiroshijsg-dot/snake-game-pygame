@@ -5,12 +5,13 @@ import theme
 # 使用可能なアイテム種別の表示順（所持アイテムをこの順でスロットへ詰める）。
 # ショップの解放順（unlock_score の低い順）に合わせる。将来アイテムを増やしたら
 # ここに key を足す（ショップのカタログと対応）。
-ITEM_ORDER = ["duration_boost", "double_points", "super_magnet", "bomb"]
+ITEM_ORDER = ["duration_boost", "double_points", "super_magnet", "bomb", "time_warp"]
 
 # アイテムごとのポーション液体色（スロット/ショップのアイコン・残り時間バーで共用）
 ITEM_COLORS = {
     "double_points": theme.POTION_LIQUID,
     "duration_boost": theme.POTION_LIQUID2,
+    "time_warp": theme.SHIELD_BODY,  # スロット上の残り時間バー（青）
 }
 
 
@@ -50,12 +51,31 @@ def _draw_bomb_icon(surface, cx, cy, s):
     pygame.draw.circle(surface, theme.ORB_HIGHLIGHT, (cx - 3 * s, cy - s), max(1, int(2 * s)))  # 光沢
 
 
+# 懐中時計（タイムワープのアイコン。金の縁＋文字盤＋針＋上部の竜頭/リング）
+def _draw_watch_icon(surface, cx, cy, s):
+    r = int(9 * s)
+    # 上部の竜頭(つまみ)とリング
+    pygame.draw.line(surface, theme.GOLD, (cx, int(cy - r)), (cx, int(cy - r - 4 * s)),
+                     max(2, int(2 * s)))
+    pygame.draw.circle(surface, theme.GOLD, (cx, int(cy - r - 5 * s)), max(2, int(2.2 * s)),
+                       max(1, int(1.2 * s)))
+    # 文字盤（金の縁＋淡いガラス面）
+    pygame.draw.circle(surface, theme.GOLD, (cx, cy), r)
+    pygame.draw.circle(surface, theme.POTION_GLASS, (cx, cy), max(1, int(r - 2 * s)))
+    # 針（時針=上, 分針=右）と中心軸
+    pygame.draw.line(surface, theme.TEXT, (cx, cy), (cx, int(cy - r * 0.55)), max(2, int(1.8 * s)))
+    pygame.draw.line(surface, theme.TEXT, (cx, cy), (int(cx + r * 0.5), cy), max(2, int(1.8 * s)))
+    pygame.draw.circle(surface, theme.TEXT, (cx, cy), max(1, int(1.5 * s)))
+
+
 # item_key に応じたアイコンを描く（ItemBar / ショップ / チュートリアルで共用）
 def draw_item_icon(surface, key, cx, cy, scale=1.0):
     if key == "super_magnet":
         _draw_super_magnet_icon(surface, cx, cy, scale)
     elif key == "bomb":
         _draw_bomb_icon(surface, cx, cy, scale)
+    elif key == "time_warp":
+        _draw_watch_icon(surface, cx, cy, scale)
     else:
         draw_potion(surface, cx, cy, scale=scale, liquid=ITEM_COLORS.get(key, theme.POTION_LIQUID))
 
@@ -134,6 +154,29 @@ class DurationBoostEffect(_TimedEffect):
         for manager in self.targets:
             manager.extend_active(self.MULTIPLIER)
         return ok
+
+
+# タイムワープ（懐中時計）: 一定時間、ゲーム内の「時間の流れ」そのものを遅くする。
+# メインループが毎フレームの dt に time_scale を掛けるので、これ1つで蛇の速度・アイテム
+# 効果の残り時間・盤面アイテムの出現/寿命/再生成・ボーナスオーブの寿命など、時間に
+# 関係するあらゆる要素が一括で遅くなる。自分自身の残り時間も遅れた時間で数えるため、
+# 実時間ではより長く続く（＝アイテムの使用時間も伸びる）。
+class TimeWarpEffect(_TimedEffect):
+    DURATION = 6.0       # ゲーム内秒。発動中は時間が遅く流れるので実時間はもっと長い
+    SLOW_FACTOR = 0.5    # 時間の流れる速さ（0.5 = 半分の速さ）
+
+    # メインループが dt に掛ける倍率（発動中だけ遅くなる）
+    @property
+    def time_scale(self):
+        return self.SLOW_FACTOR if self.active else 1.0
+
+    # 発動中はプレイ領域にうっすら青のオーバーレイを重ねてスローモーを知らせる
+    def draw_field(self, surface):
+        if not self.active:
+            return
+        overlay = pygame.Surface((theme.PLAY_W, theme.PLAY_H), pygame.SRCALPHA)
+        overlay.fill((*theme.SHIELD_BODY[:3], 26))
+        surface.blit(overlay, (0, theme.HUD_HEIGHT))
 
 
 # スーパーマグネット: 使った瞬間、盤面の全オーブ（ボーナス含む）を回収する。
@@ -220,7 +263,7 @@ class ItemBar:
     SLOT_GAP = 10
 
     def __init__(self, snake, users, settings, double_points_effect, duration_boost_effect,
-                 super_magnet_effect=None, bomb_effect=None):
+                 super_magnet_effect=None, bomb_effect=None, time_warp_effect=None):
         self.snake = snake
         self.users = users
         self.settings = settings
@@ -233,6 +276,15 @@ class ItemBar:
             self.effects["super_magnet"] = super_magnet_effect
         if bomb_effect is not None:
             self.effects["bomb"] = bomb_effect
+        if time_warp_effect is not None:
+            self.effects["time_warp"] = time_warp_effect
+
+    # ゲーム時間の倍率（タイムワープ発動中だけ < 1 になる）。
+    # メインループが毎フレームの dt にこれを掛けて、時間に関わる全更新を一括で遅くする。
+    @property
+    def time_scale(self):
+        tw = self.effects.get("time_warp")
+        return tw.time_scale if tw is not None else 1.0
 
     def update(self, dt):
         for effect in self.effects.values():
@@ -242,11 +294,15 @@ class ItemBar:
         for effect in self.effects.values():
             effect.reset()
 
-    # 現在のスロット割り当て（所持アイテムを ITEM_ORDER 順に詰める）。
+    # 現在のスロット割り当て。
     # 長さ SLOT_COUNT のリストで、空きは None。
+    # ユーザーがロードアウトを設定していればその並びを優先（装備選択）。
+    # 未設定（空）なら従来通り ITEM_ORDER 順に所持品を自動で詰める。
     def _slot_keys(self):
+        loadout = self.users.loadout()
+        order = loadout if loadout else ITEM_ORDER
         owned = []
-        for key in ITEM_ORDER:
+        for key in order:
             effect = self.effects.get(key)
             if self.users.item_count(key) > 0 or (effect is not None and effect.active):
                 owned.append(key)

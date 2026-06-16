@@ -29,7 +29,6 @@ CHANGELOG = [
           "to tell apart when both are active."],
          "items"),
     ]),
-    # 現在バージョンより新しいエントリは表示されない（次のリリースで自動的に有効になる）
     ("1.4", [
         ("New Shop Items!",
          ["Super Magnet: sucks in every orb on the board.",
@@ -37,6 +36,30 @@ CHANGELOG = [
           "Both unlock at best score 150 —",
           "and come in packs of 3."],
          "shop"),
+    ]),
+    # 現在バージョンより新しいエントリは表示されない（次のリリースで自動的に有効になる）
+    ("2.0", [
+        ("Loadout & Status Screen",
+         ["A new LOADOUT screen on the title menu.",
+          "Check your gear and choose which items",
+          "go into your bottom slots."],
+         "items"),
+        ("Permanent Upgrades",
+         ["Buy Point Boost to add +1 to every point",
+          "you earn — forever. Stacks with potions",
+          "and bonus orbs. Level it up again and again!"],
+         "score"),
+        ("Smarter Bricks",
+         ["Bricks now thin out based on how much",
+          "your body fills the board, not your score —",
+          "so a high score no longer makes it easier."],
+         "bricks"),
+        ("New Item: Pocket Watch",
+         ["Slows down the flow of time itself —",
+          "your snake, every effect, spawns and",
+          "lifetimes all slow down. Unlocks at",
+          "best score 200."],
+         None),
     ]),
 ]
 

@@ -18,7 +18,7 @@ SHOP_ITEMS = [
               "Your snake turns gold while it's active.",
               "Use it from the bottom item bar (keys 1-4)."]},
     # bundle: 1回の購入で手に入る個数（省略時は1）
-    {"key": "super_magnet", "name": "Super Magnet", "price": 150, "unlock_score": 150, "bundle": 3,
+    {"key": "super_magnet", "name": "Super Magnet", "price": 200, "unlock_score": 150, "bundle": 3,
      "desc": ["Instantly collects every orb on the board —",
               "points and growth included!",
               "Comes in a pack of 3 per purchase."]},
@@ -26,6 +26,11 @@ SHOP_ITEMS = [
      "desc": ["Blows up every brick on the board",
               "and converts them all into score!",
               "Comes in a pack of 3 per purchase."]},
+    {"key": "time_warp", "name": "Pocket Watch", "price": 250, "unlock_score": 200,
+     "desc": ["Slows down the flow of time itself.",
+              "Your snake, every item's effect, spawns,",
+              "lifetimes — everything time-related slows,",
+              "so effects also last longer while active."]},
 ]
 
 
@@ -75,7 +80,7 @@ class ShopScreen:
                                    color=theme.PRIMARY, hover_color=theme.PRIMARY_HOVER)]
             return
         self.buttons = []
-        y = 110
+        y = 132
         for item in SHOP_ITEMS:
             if self._unlocked(item):
                 if self._seen(item):
@@ -87,7 +92,7 @@ class ShopScreen:
                         Button("UNLOCK", 150, y, partial(self._unlock, item), width=110, height=46,
                                color=theme.GOLD, hover_color=theme.GOLD,
                                text_color=theme.TEXT))
-            y -= 80
+            y -= 68
         self.buttons.append(Button("BACK", 0, -230, self.on_back,
                                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER))
 
@@ -129,7 +134,7 @@ class ShopScreen:
         if self.warning:
             theme.draw_text(surface, self.warning, 0, 150, theme.WARNING, theme.FONT_SCORE)
 
-        y = 110
+        y = 132
         for item in SHOP_ITEMS:
             owned = self.users.item_count(item["key"])
             unlocked = self._unlocked(item)
@@ -149,7 +154,7 @@ class ShopScreen:
                 pack = f"  (x{bundle} pack)" if bundle > 1 else ""
                 theme.draw_text(surface, f'{item["price"]} pt{pack}', -45, y - 12,
                                 theme.TEXT_DIM, theme.FONT_SCORE)
-            y -= 80
+            y -= 68
 
         for button in self.buttons:
             button.draw(surface)

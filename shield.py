@@ -162,6 +162,11 @@ class ShieldManager:
             if i == self.active_owner:
                 continue
             if sp.item is None:
+                # レンガがもう生成されない段階（胴体が盤面を埋めきった終盤）では、
+                # 突破対象が無いのでシールドも新規には出さない。タイマーは進めない＝
+                # 生成間隔（生成率）は下げず、ただ出現を保留するだけ。
+                if not self.obstacles.generating:
+                    continue
                 sp.timer -= dt
                 if sp.timer <= 0:
                     sp.timer = self._next_interval()

@@ -59,10 +59,12 @@ class UserManager:
     def _blank_scores(self):
         return {key: 0 for key in DIFFICULTY_ORDER}
 
-    # 1ユーザー分の新スキーマ: {scores, wallet, inventory, seen_items}
+    # 1ユーザー分の新スキーマ: {scores, wallet, inventory, seen_items, upgrades, loadout}
+    #  upgrades: 恒常強化の購入レベル {upgrade_key: level}
+    #  loadout: 下部スロットに装備するアイテムの並び [item_key, ...]。空なら自動詰め
     def _blank_record(self):
         return {"scores": self._blank_scores(), "wallet": 0, "inventory": {},
-                "seen_items": []}
+                "seen_items": [], "upgrades": {}, "loadout": []}
 
     # 読み込んだ1ユーザー分を新スキーマに正規化する。
     # 旧フラット形式（値が難易度→intの辞書）も読めるようにする（名簿を失わないため）。
@@ -80,6 +82,12 @@ class UserManager:
             seen = raw.get("seen_items", [])
             if isinstance(seen, list):
                 rec["seen_items"] = [str(s) for s in seen]
+            upgrades = raw.get("upgrades", {})
+            if isinstance(upgrades, dict):
+                rec["upgrades"] = {k: _to_int(v) for k, v in upgrades.items()}
+            loadout = raw.get("loadout", [])
+            if isinstance(loadout, list):
+                rec["loadout"] = [str(s) for s in loadout]
         elif isinstance(raw, dict):
             # 旧フラット形式: {難易度: スコア}
             rec["scores"].update({k: _to_int(v) for k, v in raw.items()})
@@ -200,6 +208,24 @@ class UserManager:
     def add_item(self, key, n=1):
         inv = self._record()["inventory"]
         inv[key] = inv.get(key, 0) + n
+        self.save()
+
+    # --- 恒常強化（アップグレード: upgrade_key -> 購入レベル）---
+    def upgrade_level(self, key):
+        return self.users.get(self.current, {}).get("upgrades", {}).get(key, 0)
+
+    def add_upgrade(self, key, n=1):
+        ups = self._record().setdefault("upgrades", {})
+        ups[key] = ups.get(key, 0) + n
+        self.save()
+
+    # --- 装備ロードアウト（下部スロットに並べるアイテムの並び）---
+    # 空リストなら「自動詰め」（ItemBar が ITEM_ORDER 順に所持品を詰める）
+    def loadout(self):
+        return list(self.users.get(self.current, {}).get("loadout", []))
+
+    def set_loadout(self, keys):
+        self._record()["loadout"] = [str(k) for k in keys]
         self.save()
 
     # チュートリアルを見終わった（SKIP含む）。以後は起動時に出さない
