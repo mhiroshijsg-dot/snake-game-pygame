@@ -294,19 +294,22 @@ class ItemBar:
         for effect in self.effects.values():
             effect.reset()
 
-    # 現在のスロット割り当て。
-    # 長さ SLOT_COUNT のリストで、空きは None。
-    # ユーザーがロードアウトを設定していればその並びを優先（装備選択）。
-    # 未設定（空）なら従来通り ITEM_ORDER 順に所持品を自動で詰める。
+    # 現在のスロット割り当て。長さ SLOT_COUNT のリストで、空きは None。
+    # ロードアウトを設定していれば、その**並び＝スロット位置を固定**する。
+    # 在庫が尽きてもスロットは消えず位置も変わらない（数字キーの対応が安定する。
+    # 実際に使えるかは use_slot 側で在庫を見る）。
+    # 未設定（空）なら従来通り ITEM_ORDER 順に所持品を自動で詰める（後方互換）。
     def _slot_keys(self):
         loadout = self.users.loadout()
-        order = loadout if loadout else ITEM_ORDER
-        owned = []
-        for key in order:
-            effect = self.effects.get(key)
-            if self.users.item_count(key) > 0 or (effect is not None and effect.active):
-                owned.append(key)
-        slots = owned[:self.SLOT_COUNT]
+        if loadout:
+            slots = loadout[:self.SLOT_COUNT]
+        else:
+            slots = []
+            for key in ITEM_ORDER:
+                effect = self.effects.get(key)
+                if self.users.item_count(key) > 0 or (effect is not None and effect.active):
+                    slots.append(key)
+            slots = slots[:self.SLOT_COUNT]
         slots += [None] * (self.SLOT_COUNT - len(slots))
         return slots
 

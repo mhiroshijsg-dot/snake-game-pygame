@@ -1,4 +1,3 @@
-import math
 from functools import partial
 import pygame
 from button import Button
@@ -9,6 +8,7 @@ from snake import GRID, STEP
 import theme
 
 SLOT_COUNT = ItemBar.SLOT_COUNT  # 装備できるスロット数（下部HUDと一致させる）
+HEADER_COLOR = theme.PRIMARY     # セクション見出しの色（金色は眩しすぎたので青系に）
 
 
 # 恒常強化のアイコン（金色の丸に白い「+」）。専用アイコンが無いアップグレード共通。
@@ -22,12 +22,19 @@ def _draw_upgrade_icon(surface, cx, cy, scale=1.0):
 
 
 # ロードアウト/ステータス画面。Minecraft のインベントリ風に、自分のスネークの見た目・
-# 装備中アイテム（上段スロット）・所持アイテム（下段グリッド）をアイコンで一覧する。
-# 恒常強化（Point Boost 等）の購入もここで行う。
+# 装備中スロット（上段4枠）・持ち物グリッド（下段＝空きスロットも並べる）をアイコンで一覧。
+# ・装備中スロットはクリックで選択→別スロットをクリックで中身を入れ替え（並べ替え）
+# ・持ち物のアイテムをクリックで装備/解除
+# ・恒常強化（Point Boost 等）の購入もここで行う
 # 共通I/F: show/hide/draw/handle_click/handle_motion
 class LoadoutScreen:
-    SLOT = 50          # アイテム枠の一辺(px)
-    SLOT_GAP = 12
+    EQUIP_SLOT = 46
+    INV_SLOT = 40
+    SLOT_GAP = 10
+    EQUIP_Y = -8       # 装備スロット行の中心Y（世界座標）
+    INV_Y = -100       # 持ち物グリッド最上段の中心Y
+    INV_COLS = 5
+    INV_ROWS = 2       # 空きスロットも含めて並べる（後で増えるアイテム用の置き場）
 
     def __init__(self, on_back, users):
         self.on_back = on_back
@@ -35,15 +42,16 @@ class LoadoutScreen:
         self.visible = False
         self.warning = ""
         self.buttons = []
-        # アイコン枠 [(key, x, y, size)]（世界座標の中心と一辺）。クリック/ホバー判定に使う
-        self.equip_slots = []   # 上段: 装備中の4枠
-        self.item_slots = []    # 下段: 所持アイテムのグリッド
-        self.hover_key = None   # ホバー中のアイテム key（名前ツールチップ表示用）
+        self.equip_slots = []   # 上段: 装備中の4枠 [(key, x, y, size)]（key は None もあり）
+        self.item_slots = []    # 下段: 持ち物グリッド [(key, x, y, size)]（空きは key=None）
+        self.hover_key = None   # ホバー中のアイテム key（名前ツールチップ用）
+        self.selected = None    # 入れ替えのために選択中の装備スロット index（None=未選択）
 
     def show(self):
         self.visible = True
         self.warning = ""
         self.hover_key = None
+        self.selected = None
         self._build()
 
     def hide(self):
@@ -64,11 +72,18 @@ class LoadoutScreen:
         unlocked = {it["key"] for it in self._unlocked_items()}
         return [k for k in ITEM_ORDER if k in unlocked][:SLOT_COUNT]
 
+    # 装備スロットを長さ SLOT_COUNT に揃えた並び（空きは None）。入れ替え操作の作業用。
+    def _padded(self):
+        eq = self._equipped()
+        return (eq + [None] * SLOT_COUNT)[:SLOT_COUNT]
+
     def _build(self):
         self.buttons = []
         self.equip_slots = []
         self.item_slots = []
-        # アップグレードの BUY ボタン（解放/上限の都合で None の時は出さない）
+        gap = self.SLOT_GAP
+
+        # アップグレードの BUY ボタン
         y = 120
         for up in UPGRADES:
             level = self.users.upgrade_level(up["key"])
@@ -79,29 +94,28 @@ class LoadoutScreen:
                            color=theme.PRIMARY, hover_color=theme.PRIMARY_HOVER))
             y -= 80
 
-        # 装備中スロット（上段4枠）を中央に並べる
-        equipped = self._equipped()
-        s, gap = self.SLOT, self.SLOT_GAP
+        # 装備中スロット（上段4枠・固定位置）
+        padded = self._padded()
+        s = self.EQUIP_SLOT
         total = SLOT_COUNT * s + (SLOT_COUNT - 1) * gap
         left = -total / 2 + s / 2
         for i in range(SLOT_COUNT):
-            key = equipped[i] if i < len(equipped) else None
-            self.equip_slots.append((key, left + i * (s + gap), -30, s))
+            self.equip_slots.append((padded[i], left + i * (s + gap), self.EQUIP_Y, s))
 
-        # 所持（解放済み）アイテムのグリッド（下段）。アイコンのみ＋個数バッジ
+        # 持ち物グリッド（下段・空きスロットも並べる）
         items = self._unlocked_items()
-        per_row = 5
-        n = len(items)
-        first_row = min(n, per_row)
-        row_total = first_row * s + (first_row - 1) * gap
-        left0 = -row_total / 2 + s / 2
-        gy = -135
-        for i, it in enumerate(items):
-            col = i % per_row
-            row = i // per_row
-            self.item_slots.append((it["key"], left0 + col * (s + gap), gy - row * (s + gap), s))
+        s2 = self.INV_SLOT
+        total2 = self.INV_COLS * s2 + (self.INV_COLS - 1) * gap
+        left0 = -total2 / 2 + s2 / 2
+        for idx in range(self.INV_COLS * self.INV_ROWS):
+            col = idx % self.INV_COLS
+            row = idx // self.INV_COLS
+            key = items[idx]["key"] if idx < len(items) else None
+            x = left0 + col * (s2 + gap)
+            yy = self.INV_Y - row * (s2 + gap)
+            self.item_slots.append((key, x, yy, s2))
 
-        self.buttons.append(Button("BACK", 0, -235, self.on_back,
+        self.buttons.append(Button("BACK", 0, -238, self.on_back,
                                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER))
 
     def _buy_upgrade(self, up):
@@ -117,17 +131,35 @@ class LoadoutScreen:
             self.warning = "Not enough points"
         self._build()
 
+    # 持ち物のアイテムをクリック: 装備/解除をトグル（最初の空きスロットへ入る）
     def _toggle_equip(self, key):
-        equipped = self._equipped()
-        if key in equipped:
-            equipped = [k for k in equipped if k != key]
+        p = self._padded()
+        if key in p:
+            p = [k for k in p if k != key]
         else:
-            if len(equipped) >= SLOT_COUNT:
+            if None not in p:
                 self.warning = f"Only {SLOT_COUNT} slots"
                 return
-            equipped = equipped + [key]
-        self.users.set_loadout(equipped)
+            p[p.index(None)] = key
+        self.users.set_loadout([k for k in p if k])
         self.warning = ""
+
+    # 装備スロット i と j の中身を入れ替える（並べ替え）
+    def _swap_slots(self, i, j):
+        p = self._padded()
+        p[i], p[j] = p[j], p[i]
+        self.users.set_loadout([k for k in p if k])
+
+    # 装備スロットをクリック: 1つ目は選択、2つ目で入れ替え
+    def _click_equip_slot(self, i):
+        padded = self._padded()
+        if self.selected is None:
+            if padded[i] is not None:   # 空きスロットは選択できない
+                self.selected = i
+        else:
+            if self.selected != i:
+                self._swap_slots(self.selected, i)
+            self.selected = None
         self._build()
 
     # --- 描画 ---
@@ -147,7 +179,7 @@ class LoadoutScreen:
             button.draw(surface)
 
     def _draw_upgrades(self, surface):
-        theme.draw_text(surface, "UPGRADES", -200, 162, theme.GOLD, theme.FONT_NAME_SMALL)
+        theme.draw_text(surface, "UPGRADES", -200, 162, HEADER_COLOR, theme.FONT_NAME_SMALL)
         y = 120
         for up in UPGRADES:
             level = self.users.upgrade_level(up["key"])
@@ -175,7 +207,6 @@ class LoadoutScreen:
             color = theme.SNAKE_PATTERN if ((last - i) // per_band) % 2 == 1 else theme.SNAKE_COLOR
             cx, cy = theme.to_screen(x, y)
             pygame.draw.circle(surface, color, (cx, cy), r)
-        # 目（heading=0＝右向き）
         hx, hy = theme.to_screen(*points[-1])
         fx, fy = 1.0, 0.0
         px, py = -fy, fx
@@ -184,42 +215,52 @@ class LoadoutScreen:
             ey = hy + fy * r * 0.45 + py * side * r * 0.40
             pygame.draw.circle(surface, theme.TEXT, (int(ex), int(ey)), max(1, int(r * 0.18)))
 
-    def _draw_slot_box(self, surface, key, x, y, size, equipped):
+    # 1スロットを描く。equipped=金枠, selected=青の太枠で「選択中」を示す
+    def _draw_slot_box(self, surface, key, x, y, size, equipped=False, selected=False):
         cx, cy = theme.to_screen(x, y)
         rect = pygame.Rect(0, 0, size, size)
         rect.center = (int(cx), int(cy))
         box = pygame.Surface((size, size), pygame.SRCALPHA)
-        # 装備中は淡い金、それ以外は淡い白の凹みセル
         box.fill((*theme.GOLD[:3], 46) if equipped else (255, 255, 255, 28))
         surface.blit(box, rect.topleft)
-        border = theme.GOLD if equipped else theme.SECONDARY
-        pygame.draw.rect(surface, border, rect, width=3 if equipped else 2, border_radius=8)
+        if selected:
+            pygame.draw.rect(surface, theme.PRIMARY, rect, width=4, border_radius=8)
+        else:
+            border = theme.GOLD if equipped else theme.SECONDARY
+            pygame.draw.rect(surface, border, rect, width=3 if equipped else 2, border_radius=8)
         if key is not None:
             count = self.users.item_count(key)
             draw_item_icon(surface, key, rect.centerx, rect.centery + 1, scale=1.0)
-            # 個数バッジ（右下）。0個は暗く
             col = theme.HUD_TEXT if count > 0 else theme.TEXT_DIM
             theme.draw_text_screen(surface, f"x{count}", rect.right - 12, rect.bottom - 10,
                                    col, theme.FONT_SCORE)
         return rect
 
     def _draw_gear(self, surface):
-        equipped = self._equipped()
-        theme.draw_text(surface, "EQUIPPED", -200, 18, theme.GOLD, theme.FONT_NAME_SMALL)
+        theme.draw_text(surface, "EQUIPPED", -200, 30, HEADER_COLOR, theme.FONT_NAME_SMALL)
         for i, (key, x, y, size) in enumerate(self.equip_slots):
-            rect = self._draw_slot_box(surface, key, x, y, size, equipped=key is not None)
+            rect = self._draw_slot_box(surface, key, x, y, size,
+                                       equipped=key is not None, selected=self.selected == i)
             theme.draw_text_screen(surface, str(i + 1), rect.left + 7, rect.top + 7,
                                    theme.TEXT_DIM, theme.FONT_SCORE)
 
-        theme.draw_text(surface, "ITEMS", -200, -97, theme.GOLD, theme.FONT_NAME_SMALL)
+        theme.draw_text(surface, "ITEMS", -200, -55, HEADER_COLOR, theme.FONT_NAME_SMALL)
+        equipped = self._equipped()
         for key, x, y, size in self.item_slots:
-            self._draw_slot_box(surface, key, x, y, size, equipped=key in equipped)
+            self._draw_slot_box(surface, key, x, y, size, equipped=key in equipped if key else False)
 
-        # ホバー中のアイテム名をツールチップとして1行表示（クリックで装備/解除）
-        if self.hover_key:
+        # 下部の案内 / ツールチップ
+        if self.selected is not None:
+            tip = "Tap another slot to swap  (tap again to cancel)"
+            theme.draw_text(surface, tip, 0, -198, theme.PRIMARY, theme.FONT_SCORE)
+        elif self.hover_key:
             name = self._item_name(self.hover_key)
-            tip = f"{name}  —  tap to {'unequip' if self.hover_key in equipped else 'equip'}"
-            theme.draw_text(surface, tip, 0, -200, theme.TEXT, theme.FONT_SCORE)
+            action = "unequip" if self.hover_key in equipped else "equip"
+            theme.draw_text(surface, f"{name}  —  tap to {action}", 0, -198,
+                            theme.TEXT, theme.FONT_SCORE)
+        else:
+            theme.draw_text(surface, "Tap items to equip · tap a slot to rearrange",
+                            0, -198, theme.TEXT_DIM, theme.FONT_SCORE)
 
     def _item_name(self, key):
         for it in SHOP_ITEMS:
@@ -227,11 +268,18 @@ class LoadoutScreen:
                 return it["name"]
         return key
 
+    # クリック位置にあるアイテム key（空き/無しは None）
     def _hit(self, slots, x, y):
-        for entry in slots:
-            key, sx, sy, size = entry
+        for key, sx, sy, size in slots:
             if key is not None and abs(x - sx) <= size / 2 and abs(y - sy) <= size / 2:
                 return key
+        return None
+
+    # クリック位置の装備スロット index（空きでも index は返す＝入れ替え先になる）
+    def _hit_index(self, slots, x, y):
+        for idx, (key, sx, sy, size) in enumerate(slots):
+            if abs(x - sx) <= size / 2 and abs(y - sy) <= size / 2:
+                return idx
         return None
 
     def handle_click(self, x, y):
@@ -239,10 +287,17 @@ class LoadoutScreen:
             if button.contains(x, y):
                 button.on_click()
                 return
-        # 装備中スロットを押したら解除、所持グリッドを押したらトグル
-        key = self._hit(self.equip_slots, x, y) or self._hit(self.item_slots, x, y)
+        i = self._hit_index(self.equip_slots, x, y)
+        if i is not None:
+            self._click_equip_slot(i)
+            return
+        key = self._hit(self.item_slots, x, y)
         if key is not None:
+            self.selected = None
             self._toggle_equip(key)
+            self._build()
+            return
+        self.selected = None  # 余白クリックで選択解除
 
     def handle_motion(self, x, y):
         for button in self.buttons:

@@ -61,6 +61,15 @@ CHANGELOG = [
           "best score 200."],
          None),
     ]),
+    # 現在バージョンより新しいエントリは表示されない（次のリリースで自動的に有効になる）
+    ("2.1", [
+        ("Rearrange Your Loadout",
+         ["The LOADOUT screen got a cleaner look.",
+          "Tap a slot to pick it, then tap another",
+          "to swap — arrange your 4 slots any way.",
+          "Empty slots stay put even if you run out."],
+         "loadout"),
+    ]),
 ]
 
 
