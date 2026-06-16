@@ -92,6 +92,15 @@ CHANGELOG = [
           "Double Points and Pocket Watch still work."],
          None),
     ]),
+    # 現在バージョンより新しいエントリは表示されない（次のリリースで自動的に有効になる）
+    ("2.5", [
+        ("Slots Keep Their Place",
+         ["Loadout slots no longer shift around.",
+          "Unequip an item and its slot just goes",
+          "empty — your other items stay put.",
+          "Fresh new look and app icon, too!"],
+         "loadout"),
+    ]),
 ]
 
 

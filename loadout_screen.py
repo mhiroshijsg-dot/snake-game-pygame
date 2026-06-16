@@ -137,24 +137,25 @@ class LoadoutScreen:
             self.warning = "Not enough points"
         self._build()
 
-    # 持ち物のアイテムをクリック: 装備/解除をトグル（最初の空きスロットへ入る）
+    # 持ち物のアイテムをクリック: 装備/解除をトグル。
+    # 解除はそのスロットを空き(None)にするだけ＝他のアイテムは詰めない（位置を保持）。
     def _toggle_equip(self, key):
         p = self._padded()
         if key in p:
-            p = [k for k in p if k != key]
+            p = [None if k == key else k for k in p]
         else:
             if None not in p:
                 self.warning = f"Only {SLOT_COUNT} slots"
                 return
             p[p.index(None)] = key
-        self.users.set_loadout([k for k in p if k])
+        self.users.set_loadout(p)   # 空きはそのまま保存（左詰めしない）
         self.warning = ""
 
-    # 装備スロット i と j の中身を入れ替える（並べ替え）
+    # 装備スロット i と j の中身を入れ替える（並べ替え。空き同士・空きとの交換もそのまま）
     def _swap_slots(self, i, j):
         p = self._padded()
         p[i], p[j] = p[j], p[i]
-        self.users.set_loadout([k for k in p if k])
+        self.users.set_loadout(p)
 
     # --- 描画 ---
     def draw(self, surface):

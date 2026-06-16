@@ -15,7 +15,7 @@ HERE = Path(__file__).resolve().parent
 S = 1024  # 大元のキャンバス一辺
 
 # ゲーム本体 theme.py と同じ配色
-BG = pygame.Color("#1b1f3b")          # HUDと同じ濃い藍
+BG = pygame.Color("#cfe3ff")          # 明るいパステルブルー（緑の蛇・紫オーブが映える）
 SNAKE = pygame.Color("#2fb344")
 SNAKE_PATTERN = pygame.Color("#249838")
 ORB = pygame.Color("#8b3ff0")
@@ -33,14 +33,25 @@ def draw_icon():
     rect = pygame.Rect(margin, margin, S - margin * 2, S - margin * 2)
     pygame.draw.rect(surf, BG, rect, border_radius=int(S * 0.22))
 
-    # 蛇の通るS字カーブ（左下の尾 → 右上の頭）。点を密に打って太い体を描く
+    # 蛇の通る経路（尾→頭）。ゲームは格子上を90°で曲がるので、サインのうねりではなく
+    # 直角の折れ線にする（太い体の円が重なって角がほどよく丸まり“ほぼ直角”に見える）。
+    waypoints = [(0.25, 0.70), (0.52, 0.70), (0.52, 0.42), (0.66, 0.42)]
+    wp = [(x * S, y * S) for x, y in waypoints]
+    seg_len = [math.hypot(wp[k + 1][0] - wp[k][0], wp[k + 1][1] - wp[k][1])
+               for k in range(len(wp) - 1)]
+    total = sum(seg_len)
     n = 240
     body_r = S * 0.085
     pts = []
     for i in range(n + 1):
-        t = i / n
-        x = S * (0.18 + 0.56 * t)
-        y = S * 0.52 + math.sin(t * math.pi * 2.2 + math.pi * 0.9) * S * 0.215
+        d = total * i / n          # 尾からの弧長
+        k = 0
+        while k < len(seg_len) - 1 and d > seg_len[k]:
+            d -= seg_len[k]
+            k += 1
+        f = d / seg_len[k] if seg_len[k] else 0.0
+        x = wp[k][0] + (wp[k + 1][0] - wp[k][0]) * f
+        y = wp[k][1] + (wp[k + 1][1] - wp[k][1]) * f
         pts.append((x, y))
 
     # 尾→頭の順に描いて頭を最前面に。GRID相当の間隔で2色の縞にする

@@ -90,7 +90,8 @@ class UserManager:
                 rec["upgrades"] = {k: _to_int(v) for k, v in upgrades.items()}
             loadout = raw.get("loadout", [])
             if isinstance(loadout, list):
-                rec["loadout"] = [str(s) for s in loadout]
+                # None（空きスロット）は潰さず保持する（左詰めにしないため）
+                rec["loadout"] = [None if s is None else str(s) for s in loadout]
             # v2.0〜2.2 のデータには loadout_set が無い。空でないロードアウトが
             # 保存されていれば「自分で設定済み」とみなして引き継ぐ（自動詰めに戻さない）。
             rec["loadout_set"] = bool(raw.get("loadout_set", False)) or bool(rec["loadout"])
@@ -234,9 +235,10 @@ class UserManager:
     def loadout_is_set(self):
         return bool(self.users.get(self.current, {}).get("loadout_set", False))
 
+    # keys は空きスロットを None で表した並び（位置をそのまま保存する＝左詰めしない）
     def set_loadout(self, keys):
         rec = self._record()
-        rec["loadout"] = [str(k) for k in keys]
+        rec["loadout"] = [None if k is None else str(k) for k in keys]
         rec["loadout_set"] = True
         self.save()
 

@@ -23,11 +23,11 @@ class StartScreen:
         self.buttons = [
             Button("START", 0, 20, self.on_start,
                    color=theme.PRIMARY, hover_color=theme.PRIMARY_HOVER),
-            Button("SHOP", 0, -52, self.on_shop,
+            Button("SHOP", 0, -52, self.on_shop, icon="shop",
                    color=theme.GOLD if shop_new else theme.SECONDARY,
                    hover_color=theme.GOLD if shop_new else theme.SECONDARY_HOVER,
                    text_color=theme.TEXT if shop_new else theme.BUTTON_TEXT),
-            Button("LOADOUT", 0, -124, self.on_loadout,
+            Button("LOADOUT", 0, -124, self.on_loadout, icon="loadout",
                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),
             Button("QUIT", 0, -196, self.on_quit,
                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),

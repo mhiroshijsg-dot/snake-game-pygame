@@ -25,11 +25,11 @@ class GameOverScreen:
         self.buttons = [
             Button("START" if as_start else "RETRY", 0, -58, self.on_retry,
                    color=theme.PRIMARY, hover_color=theme.PRIMARY_HOVER),
-            Button("SHOP", -106, -128, self.on_shop, width=192,
+            Button("SHOP", -106, -128, self.on_shop, width=192, icon="shop",
                    color=theme.GOLD if shop_new else theme.SECONDARY,
                    hover_color=theme.GOLD if shop_new else theme.SECONDARY_HOVER,
                    text_color=theme.TEXT if shop_new else theme.BUTTON_TEXT),
-            Button("LOADOUT", 106, -128, self.on_loadout, width=192,
+            Button("LOADOUT", 106, -128, self.on_loadout, width=192, icon="loadout",
                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),
             Button("BACK", 0, -198, self.on_back,
                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),
