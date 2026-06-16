@@ -59,12 +59,15 @@ class UserManager:
     def _blank_scores(self):
         return {key: 0 for key in DIFFICULTY_ORDER}
 
-    # 1ユーザー分の新スキーマ: {scores, wallet, inventory, seen_items, upgrades, loadout}
+    # 1ユーザー分の新スキーマ: {scores, wallet, inventory, seen_items, upgrades, loadout, loadout_set}
     #  upgrades: 恒常強化の購入レベル {upgrade_key: level}
-    #  loadout: 下部スロットに装備するアイテムの並び [item_key, ...]。空なら自動詰め
+    #  loadout: 下部スロットに装備するアイテムの並び [item_key, ...]
+    #  loadout_set: ロードアウトを一度でも自分で編集したか。False の間だけ自動詰めを使う。
+    #    これが無いと「全部外して空にした」状態と「未設定」が区別できず、最後の1個を
+    #    外した瞬間に自動詰め（全装備）へ戻ってしまう（過去のバグ）。
     def _blank_record(self):
         return {"scores": self._blank_scores(), "wallet": 0, "inventory": {},
-                "seen_items": [], "upgrades": {}, "loadout": []}
+                "seen_items": [], "upgrades": {}, "loadout": [], "loadout_set": False}
 
     # 読み込んだ1ユーザー分を新スキーマに正規化する。
     # 旧フラット形式（値が難易度→intの辞書）も読めるようにする（名簿を失わないため）。
@@ -88,6 +91,9 @@ class UserManager:
             loadout = raw.get("loadout", [])
             if isinstance(loadout, list):
                 rec["loadout"] = [str(s) for s in loadout]
+            # v2.0〜2.2 のデータには loadout_set が無い。空でないロードアウトが
+            # 保存されていれば「自分で設定済み」とみなして引き継ぐ（自動詰めに戻さない）。
+            rec["loadout_set"] = bool(raw.get("loadout_set", False)) or bool(rec["loadout"])
         elif isinstance(raw, dict):
             # 旧フラット形式: {難易度: スコア}
             rec["scores"].update({k: _to_int(v) for k, v in raw.items()})
@@ -220,12 +226,18 @@ class UserManager:
         self.save()
 
     # --- 装備ロードアウト（下部スロットに並べるアイテムの並び）---
-    # 空リストなら「自動詰め」（ItemBar が ITEM_ORDER 順に所持品を詰める）
     def loadout(self):
         return list(self.users.get(self.current, {}).get("loadout", []))
 
+    # ロードアウトを自分で編集済みか。False の間だけ自動詰め（ITEM_ORDER順）を使う。
+    # True になれば、空でも「明示的に空」として尊重する（全外し→全装備の出戻りを防ぐ）。
+    def loadout_is_set(self):
+        return bool(self.users.get(self.current, {}).get("loadout_set", False))
+
     def set_loadout(self, keys):
-        self._record()["loadout"] = [str(k) for k in keys]
+        rec = self._record()
+        rec["loadout"] = [str(k) for k in keys]
+        rec["loadout_set"] = True
         self.save()
 
     # チュートリアルを見終わった（SKIP含む）。以後は起動時に出さない

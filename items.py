@@ -300,9 +300,8 @@ class ItemBar:
     # 実際に使えるかは use_slot 側で在庫を見る）。
     # 未設定（空）なら従来通り ITEM_ORDER 順に所持品を自動で詰める（後方互換）。
     def _slot_keys(self):
-        loadout = self.users.loadout()
-        if loadout:
-            slots = loadout[:self.SLOT_COUNT]
+        if self.users.loadout_is_set():
+            slots = self.users.loadout()[:self.SLOT_COUNT]
         else:
             slots = []
             for key in ITEM_ORDER:

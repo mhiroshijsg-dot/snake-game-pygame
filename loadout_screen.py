@@ -71,11 +71,10 @@ class LoadoutScreen:
         best = self.users.best_high_score()
         return [it for it in SHOP_ITEMS if best >= it["unlock_score"]]
 
-    # 現在の実効ロードアウト（保存があればそれ、無ければ自動詰め相当）
+    # 現在の実効ロードアウト（編集済みならそれ＝空も尊重、未編集なら自動詰め相当）
     def _equipped(self):
-        lo = self.users.loadout()
-        if lo:
-            return [k for k in lo][:SLOT_COUNT]
+        if self.users.loadout_is_set():
+            return self.users.loadout()[:SLOT_COUNT]
         unlocked = {it["key"] for it in self._unlocked_items()}
         return [k for k in ITEM_ORDER if k in unlocked][:SLOT_COUNT]
 
