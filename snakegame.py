@@ -13,7 +13,6 @@ from users import UserManager
 import theme
 import crashlog
 
-# TODO: 毎回開発元が信用できないと言われてアプデのたびに承認する必要があるのが非常に面倒、どうにかならないものか
 # TODO: オーブの出現数を上昇させるアイテムをショップに追加？
 # TODO: アイテムの効果範囲を広げる恒久強化システム
 # TODO: スキンの変更？
@@ -95,6 +94,12 @@ CURSOR_BLANK = pygame.cursors.Cursor((0, 0), pygame.Surface((1, 1), pygame.SRCAL
 CURSOR_ARROW = pygame.cursors.Cursor(*pygame.cursors.arrow)
 cursor_hidden = None  # 直近に設定したカーソル状態（変化時だけ切り替える）
 
+# IME(日本語入力)はテキスト入力が必要な画面でだけ有効にする。プレイ中などに
+# 有効のままだと、キー操作が変換対象になって左上に変換候補が出てしまうため。
+# 起動直後はオフにしておき、名前入力画面などで必要になったら有効化する。
+pygame.key.stop_text_input()
+ime_on = False
+
 while state.is_on:
     dt = clock.tick(RENDER_FPS) / 1000.0  # 前フレームからの経過秒
 
@@ -107,23 +112,24 @@ while state.is_on:
         elif state.wants_text_input() and event.type in (pygame.KEYDOWN, pygame.TEXTINPUT, pygame.TEXTEDITING):
             state.handle_text_event(event)
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP:
+            if event.key in (pygame.K_UP, pygame.K_w):
                 snake.up()
-            elif event.key == pygame.K_DOWN:
+            elif event.key in (pygame.K_DOWN, pygame.K_s):
                 snake.down()
-            elif event.key == pygame.K_LEFT:
+            elif event.key in (pygame.K_LEFT, pygame.K_a):
                 snake.left()
-            elif event.key == pygame.K_RIGHT:
+            elif event.key in (pygame.K_RIGHT, pygame.K_d):
                 snake.right()
             elif event.key == pygame.K_q:
                 state.quit()
-            elif event.key == pygame.K_s:
-                state.press_start_key()  # スタート画面 / 難易度変更後のSTART表示で反応
             elif event.key == pygame.K_r:
                 state.press_retry_key()  # RETRY表示（難易度そのまま）のときだけ反応
             elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4):
                 # 数字キーで下部スロットのアイテムを使う（プレイ中のみ反応）
                 state.use_item(event.key - pygame.K_1)
+            elif event.key in (pygame.K_j, pygame.K_k, pygame.K_l, pygame.K_SEMICOLON):
+                # jkl; を 1234 と同じスロットに割り当て
+                state.use_item((pygame.K_j, pygame.K_k, pygame.K_l, pygame.K_SEMICOLON).index(event.key))
             elif event.key == pygame.K_f:
                 # 全画面 ⇔ ウィンドウの切り替え
                 is_fullscreen = not is_fullscreen
@@ -141,6 +147,16 @@ while state.is_on:
                 state.handle_release(wx, wy)
             else:
                 state.handle_motion(wx, wy)
+
+    # テキスト入力が必要な画面（名前入力など）でだけIMEを有効にする。
+    # 状態が変わった時だけ切り替える。
+    text_mode = state.wants_text_input()
+    if text_mode != ime_on:
+        ime_on = text_mode
+        if text_mode:
+            pygame.key.start_text_input()
+        else:
+            pygame.key.stop_text_input()
 
     # 実プレイ中だけマウスカーソルを隠す（メニュー・設定・ゲームオーバーは
     # ボタンをクリックするので表示しておく）。状態が変わった時だけ差し替える。

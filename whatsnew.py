@@ -101,6 +101,15 @@ CHANGELOG = [
           "Fresh new look and app icon, too!"],
          "loadout"),
     ]),
+    # 現在バージョンより新しいエントリは表示されない（次のリリースで自動的に有効になる）
+    ("2.6", [
+        ("WASD & More Keys",
+         ["Move with WASD as well as the arrow keys,",
+          "and use items with J K L ; on top of 1-4.",
+          "No more IME candidate popup mid-game, and",
+          "the old 'press S to start' is retired."],
+         None),
+    ]),
 ]
 
 
