@@ -7,3 +7,4 @@ users.json.tmp
 crash.log
 HANDOFF.md
 .claude/
+.DS_Store
