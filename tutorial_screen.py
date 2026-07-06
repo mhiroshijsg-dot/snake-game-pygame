@@ -6,6 +6,7 @@ from snake import GRID, STEP
 from obstacle import Block
 from magnet import Magnet
 from shield import ShieldItem
+from flame import FlameItem
 from items import draw_item_icon
 from shop_screen import SHOP_ITEMS
 import theme
@@ -38,6 +39,7 @@ class SlideDeck:
         ("Field Items",
          ["Magnet: pulls in orbs from afar for a while.",
           "Shield: smash through bricks for a while.",
+          "Flame: auto-fire fireballs that break bricks.",
           "Just run into them to activate."],
          "items"),
         ("Scoring",
@@ -46,9 +48,9 @@ class SlideDeck:
           "even more than an orb. Potions help too!"],
          "score"),
         ("Controls",
-         ["Press the S key to start, R to retry,",
-          "and Q to quit the game.",
-          "Press the 1-4 keys to drink a potion",
+         ["Steer with the arrow keys or WASD.",
+          "R to retry, Q to quit the game.",
+          "Press 1-4 (or J K L ;) to drink a potion",
           "from the bottom item bar.",
           "F toggles fullscreen."],
          "keys"),
@@ -78,7 +80,8 @@ class SlideDeck:
         bonus = Food()
         bonus.points_multiplier = BONUS_MULTIPLIER
         self._icons = {"orb": orb, "bonus": bonus, "brick": Block(0, 0, 1),
-                       "magnet": Magnet(0, 0, 1), "shield": ShieldItem(0, 0, 1)}
+                       "magnet": Magnet(0, 0, 1), "shield": ShieldItem(0, 0, 1),
+                       "flame": FlameItem(0, 0, 1)}
 
     # 表示するページ一覧。users を渡すと、開放済み（seen）のポーションの
     # 説明ページが後ろに足される（How to Play 用）
@@ -121,8 +124,9 @@ class SlideDeck:
             for x in (-50, -25, 0, 25, 50):
                 self._place(surface, "brick", x, ART_Y)
         elif key == "items":
-            self._place(surface, "magnet", -70, ART_Y)
-            self._place(surface, "shield", 70, ART_Y)
+            self._place(surface, "magnet", -90, ART_Y)
+            self._place(surface, "shield", 0, ART_Y)
+            self._place(surface, "flame", 90, ART_Y)
         elif key == "score":
             # オーブ < レンガ破壊 の得点感を並べて見せる
             self._place(surface, "orb", -90, ART_Y)
@@ -230,13 +234,13 @@ class SlideDeck:
                             [(hx, hy - 16 * 4 - 12), (hx - 10, hy - 16 * 4 + 2),
                              (hx + 10, hy - 16 * 4 + 2)])
 
-    # Controls ページ: S/R/Q のキーキャップ＋ポーション用の 1-4 キー
+    # Controls ページ: R/Q のキーキャップ＋ポーション用の 1-4 キー
     def _draw_keys_art(self, surface):
-        for x, label in ((-120, "S"), (-70, "R"), (-20, "Q")):
+        for x, label in ((-120, "R"), (-70, "Q")):
             self._draw_keycap(surface, x, ART_Y + 20, label)
         for i in range(4):
             self._draw_keycap(surface, 60 + i * 40, ART_Y + 20, str(i + 1), size=30)
-        theme.draw_text(surface, "start / retry / quit", -70, ART_Y - 20,
+        theme.draw_text(surface, "retry / quit", -95, ART_Y - 20,
                         theme.TEXT_DIM, theme.FONT_SCORE)
         theme.draw_text(surface, "potions", 120, ART_Y - 20,
                         theme.TEXT_DIM, theme.FONT_SCORE)

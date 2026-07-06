@@ -29,6 +29,9 @@ MAX_FILL_PX = MAX_LENGTH * GRID
 # 各向き(度)に対応する単位移動ベクトル。cos/sinの誤差を避けて整数で進める
 DIRECTIONS = {0: (1, 0), 90: (0, 1), 180: (-1, 0), 270: (0, -1)}
 
+# フレイム効果中、頭からこの距離(px)までのボディを赤へグラデーションさせる
+HEAT_LENGTH = 140
+
 
 # turtle.Turtle の代わりに使う、位置と向きだけ持つ軽量なセグメント
 class Segment:
@@ -54,6 +57,7 @@ class Snake:
         self.visible = True
         self.crashed = False  # 衝突したか（目の表情を切り替える）
         self.tint = None      # Noneなら通常色。色が入っていればボディ全体をその色で描く（効果中の表現）
+        self.heat = 0.0       # フレイム効果中の頭の熱さ(0..1)。頭周りのボディを赤くグラデ表示する
         self.create_snake()
         self.head = self.segments[0]
         self.heading = 0    # 現在進んでいる向き（0/90/180/270）
@@ -139,6 +143,20 @@ class Snake:
     def right(self):
         self._queue(0)
 
+    # --- 相対操作（左右で90度ずつ曲がる）---
+    # 「キュー末尾（無ければ現在の向き）」を基準に回すのがポイント。これで高速に
+    # 2回押しても、1手目の曲がった先を基準に2手目が積まれ、右2回＝右回りUターンになる。
+    # 回転後の向きは基準と必ず直角なので、_queue の同方向/逆走チェックには弾かれない。
+    def _turn(self, delta):
+        reference = self.moves[-1] if self.moves else self.heading
+        self._queue((reference + delta) % 360)
+
+    def turn_left(self):
+        self._turn(90)   # 反時計回り（heading系では +90 が左）
+
+    def turn_right(self):
+        self._turn(-90)  # 時計回り
+
     # DONE 6: detect collision with wall
     def detect_wall(self):
         return (self.head.x > WALL or self.head.x < -WALL
@@ -192,10 +210,18 @@ class Snake:
             pattern_color = theme.SNAKE_PATTERN
         ox = theme.PLAY_W / 2
         oy = theme.HUD_HEIGHT + theme.PLAY_H / 2
+        # フレイム効果中は頭に近いほど赤く。履歴点 i は頭から i*STEP px 後ろの位置なので、
+        # その距離が HEAT_LENGTH 以内なら base/pattern 色を FLAME_BODY へ寄せる。
+        heat = self.heat
+        flame_color = theme.FLAME_BODY
         # 尾→頭の順に描くと頭が一番上に来る
         for i in range(len(hist) - 1, -1, -1):
             x, y = hist[i]
             color = pattern_color if (i // per_band) % 2 == 1 else base_color
+            if heat > 0:
+                f = heat * (1.0 - (i * STEP) / HEAT_LENGTH)
+                if f > 0:
+                    color = color.lerp(flame_color, f)
             draw_circle(surface, color, (ox + x, oy - y), r)  # to_screen をインライン化
         self._draw_eyes(surface, r)
 

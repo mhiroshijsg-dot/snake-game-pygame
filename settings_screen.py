@@ -1,7 +1,7 @@
 from functools import partial
 import pygame
 from button import Button
-from settings import DIFFICULTY_ORDER
+from settings import DIFFICULTY_ORDER, CONTROL_ORDER, CONTROL_SCHEMES
 import theme
 
 PLAYERS_PER_PAGE = 4  # プレイヤー選択ページに一度に表示する人数
@@ -46,6 +46,8 @@ class SettingsScreen:
             self._build_players()
         elif self.mode == "difficulty":
             self._build_difficulty()
+        elif self.mode == "controls":
+            self._build_controls()
         elif self.mode == "input":
             self.buttons = [Button("CANCEL", 0, -190, self._cancel_input,
                                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER)]
@@ -65,7 +67,10 @@ class SettingsScreen:
                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER, font=theme.FONT_NAME),
             Button(f"DIFFICULTY: {self.settings.difficulty_key}", 0, 30, self._open_difficulty, width=320,
                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),
-            Button("BACK", 0, -120, self.on_back,
+            Button(f"CONTROLS: {CONTROL_SCHEMES[self.settings.control_scheme]}", 0, -50,
+                   self._open_controls, width=320,
+                   color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),
+            Button("BACK", 0, -140, self.on_back,
                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER),
             # 左下の小さな「遊び方」ボタン
             Button("? How to Play", -205, -255, self.on_howto, width=150, height=34,
@@ -125,6 +130,19 @@ class SettingsScreen:
         self.buttons.append(Button("BACK", 0, y - 6, self._back_to_menu,
                                    color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER))
 
+    def _build_controls(self):
+        self.buttons = []
+        y = 120
+        for key in CONTROL_ORDER:
+            selected = (key == self.settings.control_scheme)
+            self.buttons.append(Button(CONTROL_SCHEMES[key], 0, y, partial(self.select_control, key),
+                                       width=260,
+                                       color=theme.PRIMARY if selected else theme.SECONDARY,
+                                       hover_color=theme.PRIMARY_HOVER if selected else theme.SECONDARY_HOVER))
+            y -= 70
+        self.buttons.append(Button("BACK", 0, y - 20, self._back_to_menu,
+                                   color=theme.SECONDARY, hover_color=theme.SECONDARY_HOVER))
+
     # --- ページ遷移・操作 ---
     def _open_players(self):
         self.mode = "players"
@@ -134,6 +152,10 @@ class SettingsScreen:
 
     def _open_difficulty(self):
         self.mode = "difficulty"
+        self._build()
+
+    def _open_controls(self):
+        self.mode = "controls"
         self._build()
 
     def _back_to_menu(self):
@@ -197,6 +219,11 @@ class SettingsScreen:
         self.settings.set_difficulty(key)
         self._build()
 
+    # 操作方式を選んでもページに留まる（選択の強調表示だけ更新）
+    def select_control(self, key):
+        self.settings.set_control_scheme(key)
+        self._build()
+
     # --- 入力イベント（snakegame のループから input モード時だけ渡される）---
     # 日本語入力(IME): 変換中は TEXTEDITING で未確定文字、確定で TEXTINPUT が来る。
     def handle_text_event(self, event):
@@ -237,6 +264,14 @@ class SettingsScreen:
                                 0, -78, theme.TEXT_DIM, theme.FONT_SCORE)
         elif self.mode == "difficulty":
             theme.draw_text(surface, "Difficulty", 0, 200, theme.TEXT, theme.FONT_BIG)
+        elif self.mode == "controls":
+            theme.draw_text(surface, "Controls", 0, 200, theme.TEXT, theme.FONT_BIG)
+            # 各方式の簡単な説明（選択ボタンの下）
+            if self.settings.control_scheme == "ABSOLUTE":
+                desc = "Arrows / WASD point the snake directly"
+            else:
+                desc = "Left / Right turn the snake 90 degrees"
+            theme.draw_text(surface, desc, 0, -120, theme.TEXT_DIM, theme.FONT_SCORE)
         elif self.mode == "confirm":
             theme.draw_text(surface, "Delete this player?", 0, 130, theme.TEXT, theme.FONT_BIG)
             theme.draw_text(surface, f'"{self.pending_delete}"', 0, 80, theme.WARNING, theme.FONT_NAME)

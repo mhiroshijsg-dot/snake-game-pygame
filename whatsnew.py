@@ -110,6 +110,21 @@ CHANGELOG = [
           "the old 'press S to start' is retired."],
          None),
     ]),
+    # 現在バージョンより新しいエントリは表示されない（次のリリースで自動的に有効になる）
+    ("2.7", [
+        ("New Item: Flame",
+         ["A new field item joins Magnet and Shield.",
+          "Grab it and your snake auto-fires fireballs",
+          "forward, smashing bricks for points.",
+          "Your head glows red while it's burning!"],
+         "items"),
+        ("Turn-Style Controls",
+         ["Prefer steering by turning? In Settings,",
+          "switch Controls to TURN L/R — left/right",
+          "rotate the snake 90 degrees instead of",
+          "pointing an absolute direction."],
+         None),
+    ]),
 ]
 
 

@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 import pygame
 
-APP_VERSION = "2.6"  # ウィンドウタイトル・タイトル画面・配布物の名前で使う
+APP_VERSION = "2.7"  # ウィンドウタイトル・タイトル画面・配布物の名前で使う
 
 
 # 同梱リソース（assets/ 等）の絶対パス。PyInstallerのfrozen実行では展開先
@@ -60,6 +60,10 @@ POTION_LIQUID2 = pygame.Color("#2fd0c0")  # ポーションの液体（青緑＝
 POTION_CORK = pygame.Color("#b5723f")    # ポーションの栓（コルク茶）
 SNAKE_BOOST = pygame.Color("#ffcf40")    # ポイント二倍中のボディ色（金）
 SNAKE_BOOST_PATTERN = pygame.Color("#e0a81f")  # 同・縞模様（やや濃い金）
+FLAME_ICON = pygame.Color("#ff5a1a")     # 炎の外炎（濃いオレンジ）
+FLAME_MID = pygame.Color("#ff9a2e")      # 炎の中間（オレンジ）＝弾の火の玉本体にも使う
+FLAME_ICON_CORE = pygame.Color("#ffe14d")  # 炎の芯（明るい黄）
+FLAME_BODY = pygame.Color("#ff3b1e")     # 効果中に頭周りのボディへ乗せる赤（緑へグラデーション）
 
 # フォント定義（名前, サイズ, スタイル）。実体は font() で生成する。
 # 名前はカンミ区切りで複数指定でき、見つかった順に使われる（macOSのモダンなサンセリフ）

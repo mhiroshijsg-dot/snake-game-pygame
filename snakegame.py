@@ -4,6 +4,7 @@ from food import FoodManager, EAT_DISTANCE
 from obstacle import ObstacleManager
 from magnet import MagnetManager
 from shield import ShieldManager
+from flame import FlameManager
 from items import (DoublePointsEffect, DurationBoostEffect, SuperMagnetEffect,
                    BombEffect, TimeWarpEffect, ItemBar)
 from score import ScoreCounter
@@ -65,20 +66,23 @@ duration_effect = DurationBoostEffect(snake, settings)  # magnet/shield の効�
 # magnet/shield は効果時間3倍アイテムを参照する（拾った瞬間に持続へ倍率を掛ける）
 magnets = MagnetManager(snake, food, obstacles, settings, duration_effect)
 shields = ShieldManager(snake, food, obstacles, settings, duration_effect)
-# 効果時間3倍ポーションは、飲んだ瞬間に発動中だった magnet/shield の残り時間も伸ばす
-duration_effect.targets = [magnets, shields]
 score_counter = ScoreCounter(settings, users)
+# フレイム: 効果中に前方へビームを撃ってレンガを破壊し得点化する（magnet/shield と同類）
+flames = FlameManager(snake, food, obstacles, settings, score_counter, double_effect, duration_effect)
+# 効果時間3倍ポーションは、飲んだ瞬間に発動中だった magnet/shield/flame の残り時間も伸ばす
+duration_effect.targets = [magnets, shields, flames]
 super_magnet_effect = SuperMagnetEffect(snake, food, score_counter, double_effect)  # 全オーブ回収
 bomb_effect = BombEffect(obstacles, score_counter, double_effect)                   # 全レンガ破壊→得点化
 time_warp_effect = TimeWarpEffect(snake, settings)                                  # 時間の流れを遅くする
 items = ItemBar(snake, users, settings, double_effect, duration_effect,
                 super_magnet_effect, bomb_effect, time_warp_effect)  # 下部アイテムスロットHUD
-# オーブ・レンガ・magnet・shield が互いに同じセルへ湧かないよう、相互参照を張る
-magnets.peers = [shields]
-shields.peers = [magnets]
-food.item_managers = [magnets, shields]
-obstacles.item_managers = [magnets, shields]
-state = GameState(snake, food, obstacles, magnets, shields, items,
+# オーブ・レンガ・magnet・shield・flame が互いに同じセルへ湧かないよう、相互参照を張る
+magnets.peers = [shields, flames]
+shields.peers = [magnets, flames]
+flames.peers = [magnets, shields]
+food.item_managers = [magnets, shields, flames]
+obstacles.item_managers = [magnets, shields, flames]
+state = GameState(snake, food, obstacles, magnets, shields, flames, items,
                   score_counter, settings, users, test_mode=TEST_CLEAR,
                   test_first_run=TEST_FIRST_RUN, test_shop_reveal=TEST_SHOP_REVEAL,
                   test_whats_new=TEST_WHATS_NEW)
@@ -112,7 +116,13 @@ while state.is_on:
         elif state.wants_text_input() and event.type in (pygame.KEYDOWN, pygame.TEXTINPUT, pygame.TEXTEDITING):
             state.handle_text_event(event)
         elif event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_UP, pygame.K_w):
+            if settings.control_scheme == "RELATIVE":
+                # 相対操作: 左右キー(A/D)で進行方向から90度ずつ曲がる。上下(W/S)は無視。
+                if event.key in (pygame.K_LEFT, pygame.K_a):
+                    snake.turn_left()
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    snake.turn_right()
+            elif event.key in (pygame.K_UP, pygame.K_w):
                 snake.up()
             elif event.key in (pygame.K_DOWN, pygame.K_s):
                 snake.down()
@@ -120,7 +130,7 @@ while state.is_on:
                 snake.left()
             elif event.key in (pygame.K_RIGHT, pygame.K_d):
                 snake.right()
-            elif event.key == pygame.K_q:
+            if event.key == pygame.K_q:
                 state.quit()
             elif event.key == pygame.K_r:
                 state.press_retry_key()  # RETRY表示（難易度そのまま）のときだけ反応
@@ -179,6 +189,7 @@ while state.is_on:
         # マグネット・シールドの出現・寿命・取得・効果
         magnets.update(game_dt)
         shields.update(game_dt)
+        flames.update(game_dt)
         items.update(game_dt)  # アイテム効果の残り時間を進める（ワープ自身の残り時間も含む）
 
         move_accumulator += game_dt
@@ -224,6 +235,7 @@ while state.is_on:
     food.draw(surface)
     magnets.draw(surface)
     shields.draw(surface)
+    flames.draw(surface)
     # HUDのSCORE表示はプレイ中だけにする（メニューで前回スコアが残らないように）
     score_counter.in_play = playing
     score_counter.draw(surface)

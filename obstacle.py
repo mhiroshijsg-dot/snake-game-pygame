@@ -15,8 +15,8 @@ HEAD_CLEARANCE = 100        # 頭のすぐ近く(全方位)には置かない(px
 HEAD_CLEARANCE_SQ = HEAD_CLEARANCE * HEAD_CLEARANCE
 AHEAD_LENGTH = 160          # 頭の進行方向の前方この距離は置かない(px)
 AHEAD_WIDTH = 40            # 前方判定の帯の横幅(片側)(px)
-LIFETIME_MIN = 8.0          # ブロックの寿命の下限(秒)
-LIFETIME_MAX = 14.0          # 寿命の上限(秒)
+LIFETIME_MIN = 11.0         # ブロックの寿命の下限(秒)
+LIFETIME_MAX = 18.0         # 寿命の上限(秒)
 MAX_TRIES = 60              # 配置先を探す試行回数
 
 # 障害物は「蛇の胴体がプレイ領域をどれだけ埋めているか(占有率)」で減らす。
@@ -149,6 +149,21 @@ class ObstacleManager:
                 self._spawn_debris(block.x, block.y)
                 return True
         return False
+
+    # フレイムの弾用: 指定のレンガ1個を破壊する（破片エフェクト付き）。
+    # 既に消えている場合に備えて存在チェックしてから消す。
+    def destroy_block(self, block):
+        if block in self.blocks:
+            self.blocks.remove(block)
+            self._spawn_debris(block.x, block.y)
+
+    # 座標(x,y)に重なるレンガを1個返す（無ければ None）。フレイムの弾の命中判定用。
+    def block_at(self, x, y):
+        for block in self.blocks:
+            dx, dy = block.x - x, block.y - y
+            if dx * dx + dy * dy < TAIL_HIT_SQ:
+                return block
+        return None
 
     # ボム用: 全レンガを破壊して個数を返す（破片エフェクト付き）。
     # 直後に湧き直すと爽快感が無いので、しばらく再湧きを止める

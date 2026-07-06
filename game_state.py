@@ -12,7 +12,7 @@ import theme
 
 
 class GameState:
-    def __init__(self, snake, food, obstacles, magnets, shields, items,
+    def __init__(self, snake, food, obstacles, magnets, shields, flames, items,
                  score_counter, settings, users, test_mode=False,
                  test_first_run=False, test_shop_reveal=False,
                  test_whats_new=None):
@@ -21,6 +21,7 @@ class GameState:
         self.obstacles = obstacles
         self.magnets = magnets
         self.shields = shields
+        self.flames = flames
         self.items = items        # 下部アイテムスロットHUD（効果の更新・リセットも担う）
         self.score_counter = score_counter
         self.settings = settings
@@ -49,6 +50,7 @@ class GameState:
         self.obstacles.hide()
         self.magnets.hide()
         self.shields.hide()
+        self.flames.hide()
 
         self.start_screen = StartScreen(self.start, self.quit, self.open_settings,
                                         self.open_howto, self.open_shop, users,
@@ -118,6 +120,7 @@ class GameState:
         self.food.reset()
         self.magnets.reset()
         self.shields.reset()
+        self.flames.reset()
         self.items.reset()
         self._apply_test_length()
         self.is_started = True
@@ -164,6 +167,7 @@ class GameState:
             self.obstacles.hide()
             self.magnets.hide()
             self.shields.hide()
+            self.flames.hide()
         else:
             self.start_screen.hide()
         self.settings_screen.show()
@@ -184,6 +188,7 @@ class GameState:
                 self.obstacles.show()
                 self.magnets.show()
                 self.shields.show()
+                self.flames.show()
                 self.score_counter.show_game_over()
                 self.game_over_screen.show(self._difficulty_changed())
         else:
@@ -219,6 +224,7 @@ class GameState:
             self.obstacles.hide()
             self.magnets.hide()
             self.shields.hide()
+            self.flames.hide()
         else:
             self.start_screen.hide()
         self.shop_screen.show()
@@ -237,6 +243,7 @@ class GameState:
                 self.obstacles.show()
                 self.magnets.show()
                 self.shields.show()
+                self.flames.show()
                 self.score_counter.show_game_over()
                 self.game_over_screen.show(self._difficulty_changed())
         else:
@@ -254,6 +261,7 @@ class GameState:
             self.obstacles.hide()
             self.magnets.hide()
             self.shields.hide()
+            self.flames.hide()
         else:
             self.start_screen.hide()
         self.loadout_screen.show()
@@ -272,6 +280,7 @@ class GameState:
                 self.obstacles.show()
                 self.magnets.show()
                 self.shields.show()
+                self.flames.show()
                 self.score_counter.show_game_over()
                 self.game_over_screen.show(self._difficulty_changed())
         else:
@@ -304,6 +313,7 @@ class GameState:
         self.obstacles.hide()
         self.magnets.hide()
         self.shields.hide()
+        self.flames.hide()
         self.score_counter.finalize_score()
         self.score_counter.show_clear()
         self.game_over_screen.show()
@@ -320,6 +330,7 @@ class GameState:
         self.food.reset()
         self.magnets.reset()
         self.shields.reset()
+        self.flames.reset()
         self.items.reset()
         self._apply_test_length()
         self.is_over = False
@@ -338,6 +349,7 @@ class GameState:
         self.obstacles.hide()
         self.magnets.hide()
         self.shields.hide()
+        self.flames.hide()
         self.start_screen.show()
 
     def quit(self):
