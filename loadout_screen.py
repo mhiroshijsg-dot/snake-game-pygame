@@ -23,7 +23,7 @@ def _draw_upgrade_icon(surface, cx, cy, scale=1.0):
 
 # ロードアウト/ステータス画面。Minecraft のインベントリ風に、自分のスネークの見た目・
 # 装備中スロット（上段4枠）・持ち物グリッド（下段＝空きスロットも並べる）をアイコンで一覧。
-# ・装備中スロットはクリックで選択→別スロットをクリックで中身を入れ替え（並べ替え）
+# ・装備中スロットはタップで解除、ドラッグで別スロットと中身を入れ替え（並べ替え）
 # ・持ち物のアイテムをクリックで装備/解除
 # ・恒常強化（Point Boost 等）の購入もここで行う
 # 共通I/F: show/hide/draw/handle_click/handle_motion
@@ -35,6 +35,7 @@ class LoadoutScreen:
     INV_Y = -100       # 持ち物グリッド最上段の中心Y
     INV_COLS = 5
     INV_ROWS = 2       # 空きスロットも含めて並べる（後で増えるアイテム用の置き場）
+    DRAG_THRESHOLD = 6 # これ以上動いたらタップではなくドラッグ扱い（世界座標の距離）
 
     def __init__(self, on_back, users):
         self.on_back = on_back
@@ -48,6 +49,8 @@ class LoadoutScreen:
         self.drag_from = None   # ドラッグ中の装備スロット index（None=ドラッグしていない）
         self.drag_key = None    # ドラッグ中のアイテム key（カーソル追従アイコン用）
         self.drag_pos = None    # ドラッグ中のカーソル位置（世界座標）
+        self.drag_start = None  # 押した位置（タップ/ドラッグの判別用）
+        self.drag_moved = False # 押してから閾値以上動いたか（一度動けば戻してもドラッグ扱い）
 
     def show(self):
         self.visible = True
@@ -60,6 +63,8 @@ class LoadoutScreen:
         self.drag_from = None
         self.drag_key = None
         self.drag_pos = None
+        self.drag_start = None
+        self.drag_moved = False
 
     def hide(self):
         self.visible = False
@@ -264,7 +269,7 @@ class LoadoutScreen:
             theme.draw_text(surface, f"{name}  —  tap to {action}", 0, -198,
                             theme.TEXT, theme.FONT_SCORE)
         else:
-            theme.draw_text(surface, "Tap items to equip · drag a slot to rearrange",
+            theme.draw_text(surface, "Tap to equip / unequip · drag a slot to rearrange",
                             0, -198, theme.TEXT_DIM, theme.FONT_SCORE)
 
         # ドラッグ中のアイコンをカーソルに追従させて描く（最前面）
@@ -305,6 +310,8 @@ class LoadoutScreen:
                 self.drag_from = i
                 self.drag_key = padded[i]
                 self.drag_pos = (x, y)
+                self.drag_start = (x, y)
+                self.drag_moved = False
             return
         key = self._hit(self.item_slots, x, y)
         if key is not None:
@@ -316,14 +323,28 @@ class LoadoutScreen:
             button.set_hover(button.contains(x, y))
         if self.drag_from is not None:
             self.drag_pos = (x, y)   # ドラッグ中はカーソル位置を更新
+            self._note_movement(x, y)
         self.hover_key = self._hit(self.equip_slots, x, y) or self._hit(self.item_slots, x, y)
 
-    # マウスを離した: 別の装備スロットの上なら入れ替え（ドラッグ&ドロップ）
+    # 押した位置から閾値以上離れたらドラッグ確定（手ぶれ程度ならタップのまま）
+    def _note_movement(self, x, y):
+        sx, sy = self.drag_start
+        if (x - sx) ** 2 + (y - sy) ** 2 >= self.DRAG_THRESHOLD ** 2:
+            self.drag_moved = True
+
+    # マウスを離した: 動かしていなければタップ＝解除、
+    # ドラッグして別の装備スロットの上なら入れ替え、それ以外はキャンセル
     def handle_release(self, x, y):
         if self.drag_from is None:
             return
-        j = self._hit_index(self.equip_slots, x, y)
-        if j is not None and j != self.drag_from:
-            self._swap_slots(self.drag_from, j)
+        self._note_movement(x, y)
+        if self.drag_moved:
+            j = self._hit_index(self.equip_slots, x, y)
+            if j is not None and j != self.drag_from:
+                self._swap_slots(self.drag_from, j)
+        else:
+            self._toggle_equip(self.drag_key)
         self._cancel_drag()
         self._build()
+        # 解除/入れ替えで中身が変わるので、案内文を今のスロットに合わせ直す
+        self.hover_key = self._hit(self.equip_slots, x, y) or self._hit(self.item_slots, x, y)
