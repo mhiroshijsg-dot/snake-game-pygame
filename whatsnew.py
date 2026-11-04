@@ -125,6 +125,14 @@ CHANGELOG = [
           "pointing an absolute direction."],
          None),
     ]),
+    # 現在バージョンより新しいエントリは表示されない（次のリリースで自動的に有効になる）
+    ("2.8", [
+        ("Tap to Unequip",
+         ["Tap an equipped slot in the LOADOUT screen",
+          "to take that item off. Dragging a slot",
+          "still rearranges your gear as before."],
+         "loadout"),
+    ]),
 ]
 
 
