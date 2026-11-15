@@ -1,0 +1,152 @@
+# vX.Y タグを push すると macOS(universal2) と Windows(x64) の zip をビルドし、
+# GitHub Release の「下書き」に添付する。本文(What's New)を書いてから手で公開する。
+# Actions タブから手動実行(workflow_dispatch)した場合はビルドだけ行い、
+# zip は実行結果の Artifacts からダウンロードできる(リリースは作らない)。
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # macOS は python.org の universal2 インストーラを使う(Homebrew/setup-python の
+  # arm64 単一ビルドだと universal2 の .app が作れない)。
+  PYTHON_VERSION: "3.14.0"
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        name: Read APP_VERSION and check it matches the tag
+        run: |
+          version=$(sed -nE 's/^APP_VERSION *= *"([^"]+)".*/\1/p' theme.py)
+          echo "APP_VERSION=$version"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v$version" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match APP_VERSION $version in theme.py"
+            exit 1
+          fi
+          if ! grep -q "(\"$version\"," whatsnew.py; then
+            echo "::warning::whatsnew.py の CHANGELOG に $version のエントリがありません(修正だけのリリースなら問題なし)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build-mac:
+    needs: version
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install python.org universal2 Python
+        run: |
+          curl -fsSL -o python.pkg "https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-macos11.pkg"
+          sudo installer -pkg python.pkg -target /
+          PY=/Library/Frameworks/Python.framework/Versions/${PYTHON_VERSION%.*}/bin/python${PYTHON_VERSION%.*}
+          "$PY" -m venv venv
+          venv/bin/python -m pip install --upgrade pip
+          venv/bin/python -m pip install pyinstaller pygame-ce
+          venv/bin/python -m pip list
+      - name: Build SnakeGame.app
+        run: venv/bin/python -m PyInstaller -y --clean --distpath dist --workpath build packaging/SnakeGame-mac.spec
+      - name: Verify (codesign / universal2 / headless start)
+        run: |
+          APP=dist/SnakeGame.app
+          codesign --verify --deep --strict "$APP"
+          # 本体と pygame の拡張モジュールが x86_64 と arm64 の両方を含むこと
+          for f in "$APP/Contents/MacOS/SnakeGame" $(find "$APP" -path '*pygame*' -name '*.so' | head -5); do
+            archs=$(lipo -archs "$f"); echo "$f: $archs"
+            case "$archs" in *x86_64*arm64*|*arm64*x86_64*) ;; *) echo "::error::not universal2: $f"; exit 1;; esac
+          done
+          # 画面なしで起動し、5秒後もクラッシュせず動いていること
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$APP/Contents/MacOS/SnakeGame" &
+          pid=$!; sleep 5
+          kill -0 $pid || { echo "::error::app exited during headless start"; exit 1; }
+          kill $pid
+      - name: Zip (ditto keeps bundle metadata)
+        run: |
+          cd dist
+          ditto -c -k --keepParent SnakeGame.app "SnakeGame-${VERSION}-mac-universal2.zip"
+          shasum -a 256 "SnakeGame-${VERSION}-mac-universal2.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: dist/SnakeGame-*-mac-universal2.zip
+          if-no-files-found: error
+
+  build-windows:
+    needs: version
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller pygame-ce
+          python -m pip list
+      - name: Build SnakeGame.exe
+        run: python -m PyInstaller -y --clean --distpath dist --workpath build packaging/SnakeGame-windows.spec
+      - name: Verify (version resource / headless start)
+        shell: pwsh
+        run: |
+          $exe = "dist/SnakeGame/SnakeGame.exe"
+          $fv = (Get-Item $exe).VersionInfo.ProductVersion
+          Write-Host "ProductVersion: $fv"
+          if ($fv -ne "$env:VERSION.0.0") { throw "exe version $fv does not match $env:VERSION" }
+          $env:SDL_VIDEODRIVER = "dummy"; $env:SDL_AUDIODRIVER = "dummy"
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 5
+          if ($p.HasExited) { throw "app exited during headless start (code $($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+      - name: Zip
+        shell: pwsh
+        run: |
+          $zip = "dist/SnakeGame-$env:VERSION-windows-x64.zip"
+          Compress-Archive -Path dist/SnakeGame -DestinationPath $zip -Force
+          (Get-FileHash $zip -Algorithm SHA256).Hash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/SnakeGame-*-windows-x64.zip
+          if-no-files-found: error
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [version, build-mac, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Create draft release
+        run: |
+          cat > notes.md <<EOF
+          ## What's New in v${VERSION}
+
+          - (ここに変更点を書いてから公開する)
+
+          ### Downloads
+          - macOS (universal2): \`SnakeGame-${VERSION}-mac-universal2.zip\`
+          - Windows (x64): \`SnakeGame-${VERSION}-windows-x64.zip\`
+          EOF
+          sha256sum SnakeGame-*.zip
+          gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --draft \
+            --title "Snake Game v${VERSION}" --notes-file notes.md \
+            SnakeGame-*-mac-universal2.zip SnakeGame-*-windows-x64.zip
