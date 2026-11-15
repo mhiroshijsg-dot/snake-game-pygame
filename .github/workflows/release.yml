@@ -23,7 +23,7 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: v
         name: Read APP_VERSION and check it matches the tag
         run: |
@@ -44,7 +44,7 @@ jobs:
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install python.org universal2 Python
         run: |
           curl -fsSL -o python.pkg "https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-macos11.pkg"
@@ -75,7 +75,7 @@ jobs:
           cd dist
           ditto -c -k --keepParent SnakeGame.app "SnakeGame-${VERSION}-mac-universal2.zip"
           shasum -a 256 "SnakeGame-${VERSION}-mac-universal2.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mac
           path: dist/SnakeGame-*-mac-universal2.zip
@@ -87,8 +87,8 @@ jobs:
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
@@ -116,7 +116,7 @@ jobs:
           $zip = "dist/SnakeGame-$env:VERSION-windows-x64.zip"
           Compress-Archive -Path dist/SnakeGame -DestinationPath $zip -Force
           (Get-FileHash $zip -Algorithm SHA256).Hash
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: dist/SnakeGame-*-windows-x64.zip
@@ -132,7 +132,7 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           merge-multiple: true
       - name: Create draft release
